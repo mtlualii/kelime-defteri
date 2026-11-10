@@ -252,6 +252,13 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent);
 .opt.wrong { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
 .opt:disabled { cursor: default; }
 .typebox { display: grid; gap: 8px; }
+.writebox { display: grid; gap: 10px; }
+.writebox .wrow { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center; }
+.writebox input { width: 100%; font: inherit; font-family: var(--font-display); font-size: 18px; font-weight: 500; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.writebox .btn.ghost { justify-self: center; }
+.rcard .arow .you { display: block; font-size: 14px; font-weight: 400; margin-top: 2px; }
+.rcard .arow.ok .you { color: var(--ok); }
+.rcard .arow.no .you { color: var(--danger); }
 .typebox input { font-family: var(--font-display); font-size: 20px; font-weight: 500; padding: 12px 14px; }
 .grade { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .grade .btn { display: grid; gap: 2px; padding: 12px 6px; }
@@ -965,6 +972,65 @@ details.settings .stack { padding-top: 12px; }
     if (w.lang === 'tr') { [w.en, w.de].forEach((t) => { const n = normAns(t); if (n) set.add(n); }); }
     return set;
   }
+  // ---- "write the meanings" check: lenient local match first, the model only for the rest
+  const fold = (s) => norm(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ı/g, 'i').replace(/ß/g, 'ss')
+    .replace(/\([^)]*\)/g, ' ').replace(/[.,;:!?'’"“”]/g, '').replace(/^(der|die|das|to|the|a|an|bir)\s+/, '').replace(/\s+/g, ' ').trim();
+  function lev(a, b) {
+    if (Math.abs(a.length - b.length) > 2) return 3;
+    let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      const cur = [i];
+      for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+    return prev[b.length];
+  }
+  function expectedOf(w, l) {   // every accepted spelling for one language
+    const raw = l === w.lang ? [w.term, w.typed, w.source, latinPart(w.term), latinPart(w.source)] : [w[l]];
+    const out = new Set();
+    raw.forEach((t) => String(t || '').split(/[,;/]|\s·\s/).forEach((part) => { const f = fold(part); if (f) out.add(f); }));
+    return out;
+  }
+  function localMatch(typed, set) {
+    const t = fold(typed); if (!t) return false;
+    for (const e of set) {
+      if (e === t) return true;
+      const tol = e.length >= 9 ? 2 : e.length >= 5 ? 1 : 0;
+      if (tol && lev(e, t) <= tol) return true;
+    }
+    return false;
+  }
+  const LANG_EN = { en: 'English', de: 'German', tr: 'Turkish' };
+  function checkPrompt(w, rows) {
+    return 'A language learner is reviewing the word "' + w.term + '"' + (w.source ? ' (' + w.source + ')' : '') + ' and typed its meaning from memory.\n' +
+      'Saved meanings: ' + LANGS.filter((l) => w[l]).map((l) => LANG_EN[l] + ' = "' + w[l] + '"').join('; ') + '.\n' +
+      'Judge each answer below. Accept it if it means the same thing in that language: synonyms, a close near-synonym, missing or wrong articles, missing special characters (ş ı ğ ü ö ç ä ß), small typos and another correct form all count as correct. Reject a different meaning, the wrong language, or an empty answer.\n' +
+      rows.map((r) => '- ' + r.lang + ' (' + LANG_EN[r.lang] + '): "' + r.typed + '"').join('\n') + '\n' +
+      'Reply with JSON only: {"<lang code>": {"ok": true|false, "note": "<at most 8 words in Turkish, only when it helps, else empty>"}} with one key per answer above.';
+  }
+  async function checkWritten(id) {
+    const w = wordById(id); if (!w) return;
+    const rows = backOf(w).map((row) => {
+      const inp = document.querySelector('#writeBox input[data-l="' + row.lang + '"]');
+      const typed = inp ? inp.value.trim() : '';
+      return { lang: row.lang, text: row.text, typed, ok: localMatch(typed, expectedOf(w, row.lang)), note: '' };
+    });
+    const ask = rows.filter((r) => r.typed && !r.ok);
+    if (ask.length && state.sample && !state.sampleOff) {
+      rev.checking = true;
+      const wb = $('#writeBox'); if (wb) { wb.querySelectorAll('input, button').forEach((x) => { x.disabled = true; }); const sb = wb.querySelector('button[type=submit]'); if (sb) sb.textContent = 'Kontrol ediliyor…'; }
+      try {
+        const res = await state.sample.json(checkPrompt(w, ask), { modelTier: 'quick', cache: false });
+        ask.forEach((r) => { const v = res && res[r.lang]; if (v && v.ok === true) r.ok = true; if (v && typeof v.note === 'string') r.note = v.note.trim(); });
+      } catch (e) { rev.fallbackNote = 'Anlam kontrolü yapılamadı, harf harf karşılaştırdım.'; }
+      rev.checking = false;
+      if (!rev.active || rev.queue[rev.idx] !== id) return;   // moved on meanwhile
+    }
+    const right = rows.filter((r) => r.ok).length;
+    rev.result = { kind: 'write', rows, ok: right === rows.length, sug: right === rows.length ? 'ok' : right ? 'hard' : 'miss' };
+    rev.revealed = true; renderReview();
+  }
+
   function choicesFor(w) {
     const ans = answerOf(w);
     const seen = new Set([normAns(ans.text)]);
@@ -1013,7 +1079,7 @@ details.settings .stack { padding-top: 12px; }
     const id = rev.queue[rev.idx];
     rev.queue.splice(rev.idx, 1);
     if (passed) rev.done++; else { rev.missed++; rev.queue.push(id); }   // a missed word comes back at the end
-    rev.revealed = false; rev.result = null;
+    rev.revealed = false; rev.result = null; rev.checking = false; rev.fallbackNote = '';
     if (rev.idx >= rev.queue.length) rev.idx = 0;
     renderReview();
   }
@@ -1031,10 +1097,10 @@ details.settings .stack { padding-top: 12px; }
     const todayD = state.days[todayISO()] || {};
 
     if (!rev.active) {
-      const settings = '<details class="settings"><summary>Ayarlar: ' + ({ card: 'kart', choice: 'çoktan seçmeli', type: 'yazarak' }[rev.quiz]) + ' · ' + (rev.limit ? 'tur başına ' + rev.limit : 'hepsi') + '</summary><div class="stack">' +
-        '<div><label class="lbl">Nasıl sorsun?</label>' + segHTML('quizSeg', 'three', [['card', 'Kart'], ['choice', 'Çoktan seçmeli'], ['type', 'Yazarak']], rev.quiz) + '</div>' +
-        (rev.quiz === 'type' ? '<p class="hint">Yazarak modunda hep Türkçesini görüp kelimeyi yazarsın.</p>' :
-          '<div><label class="lbl">Kart neyi göstersin?</label>' + segHTML('modeSeg', '', [['word', 'Kelimeyi gör, anlamı hatırla'], ['meaning', 'Türkçesini gör, kelimeyi hatırla']], rev.mode) + '</div>') +
+      const settings = '<details class="settings"><summary>Ayarlar: ' + ({ card: 'anlamları yaz', choice: 'çoktan seçmeli', type: 'kelimeyi yaz' }[rev.quiz]) + ' · ' + (rev.limit ? 'tur başına ' + rev.limit : 'hepsi') + '</summary><div class="stack">' +
+        '<div><label class="lbl">Nasıl sorsun?</label>' + segHTML('quizSeg', 'three', [['card', 'Anlamları yaz'], ['choice', 'Çoktan seçmeli'], ['type', 'Kelimeyi yaz']], rev.quiz) + '</div>' +
+        (rev.quiz === 'type' ? '<p class="hint">Bu modda hep Türkçesini görüp kelimenin kendisini yazarsın.</p>' :
+          '<div><label class="lbl">Kart neyi göstersin?</label>' + segHTML('modeSeg', '', [['word', 'Kelimeyi gör, anlamlarını yaz'], ['meaning', 'Türkçesini gör, diğerlerini yaz']], rev.mode) + '</div>') +
         '<div><label class="lbl">Tur başına kelime</label>' + segHTML('limitSeg', 'four', [[10, '10'], [20, '20'], [50, '50'], [0, 'Hepsi']], rev.limit) + '</div>' +
         '</div></details>';
       const stats = '<div class="stats"><div class="stat"><b>' + due.length + '</b><span>bugün sırada</span></div><div class="stat"><b>' + sd + '</b><span>gün seri</span></div><div class="stat"><b>' + (wk.acc === null ? '–' : wk.acc + '%') + '</b><span>7 gün doğruluk</span></div></div>';
@@ -1087,7 +1153,7 @@ details.settings .stack { padding-top: 12px; }
       '<div class="bar"><i style="width:' + progress + '%"></i></div>' +
       '<div class="card rcard">' +
         '<div class="front"><span class="' + chipCls(f.lang) + '">' + esc(chipTxt(f.lang)) + '</span><div class="line"><p class="big">' + esc(f.text) + '</p>' + spkHTML(f.text, f.lang) + '</div>' +
-          (rev.revealed ? '' : '<span class="sub">' + (quiz === 'type' ? 'Kelimeyi yaz' : quiz === 'choice' ? 'Doğru karşılığı seç' : (f.lang === w.lang ? 'Anlamını hatırlamaya çalış' : 'Kelimeyi hatırlamaya çalış')) + '</span>') + '</div>';
+          (rev.revealed ? '' : '<span class="sub">' + (quiz === 'type' ? 'Kelimeyi yaz' : quiz === 'choice' ? 'Doğru karşılığı seç' : (f.lang === w.lang ? 'Anlamlarını yaz' : 'Diğer karşılıklarını yaz')) + '</span>') + '</div>';
 
     if (!rev.revealed) {
       if (quiz === 'choice') {
@@ -1095,7 +1161,12 @@ details.settings .stack { padding-top: 12px; }
       } else if (quiz === 'type') {
         html += '<div class="typebox"><input type="text" id="typeIn" placeholder="…" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" autocomplete="off"><button class="btn primary block" type="button" id="checkBtn">Kontrol et</button></div>';
       } else {
-        html += '<button class="btn primary block" type="button" id="revealBtn">Cevabı göster</button>';
+        const ask = backOf(w);
+        html += '<form class="writebox" id="writeBox" autocomplete="off">' + ask.map((row, i) =>
+            '<label class="wrow"><span class="' + chipCls(row.lang) + '">' + esc(chipTxt(row.lang)) + '</span>' +
+            '<input type="text" data-l="' + row.lang + '" placeholder="' + esc({ en: 'İngilizcesi', de: 'Almancası', tr: 'Türkçesi' }[row.lang] || 'Kelimenin kendisi') + '" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="' + (i === ask.length - 1 ? 'done' : 'next') + '"' + (rev.checking ? ' disabled' : '') + '></label>').join('') +
+          '<button class="btn primary block" type="submit"' + (rev.checking ? ' disabled' : '') + '>' + (rev.checking ? 'Kontrol ediliyor…' : 'Kontrol et') + '</button>' +
+          '<button class="btn small ghost" type="button" id="revealBtn"' + (rev.checking ? ' disabled' : '') + '>Bilmiyorum, cevabı göster</button></form>';
       }
     } else {
       const r = rev.result;
@@ -1104,11 +1175,17 @@ details.settings .stack { padding-top: 12px; }
       } else if (r && quiz === 'type') {
         html += '<div class="notice ' + (r.ok ? 'good' : 'err') + '">' + (r.ok ? 'Doğru: ' : 'Yazdığın: “' + esc(r.chosen || '—') + '” · Doğrusu: ') + '<b>' + esc(r.correct) + '</b></div>';
       }
-      const rows = backOf(w).map((row) => '<div class="arow"><span class="' + chipCls(row.lang) + '">' + esc(chipTxt(row.lang)) + '</span><span>' + esc(row.text) + '</span>' + spkHTML(row.text, row.lang) + '</div>').join('');
+      const marks = r && r.kind === 'write' ? Object.fromEntries(r.rows.map((x) => [x.lang, x])) : null;
+      const rows = backOf(w).map((row) => {
+        const m = marks && marks[row.lang];
+        if (!m) return '<div class="arow"><span class="' + chipCls(row.lang) + '">' + esc(chipTxt(row.lang)) + '</span><span>' + esc(row.text) + '</span>' + spkHTML(row.text, row.lang) + '</div>';
+        return '<div class="arow ' + (m.ok ? 'ok' : 'no') + '"><span class="' + chipCls(row.lang) + '">' + esc(chipTxt(row.lang)) + '</span><span>' + esc(row.text) +
+          '<span class="you">' + (m.ok ? '✓ ' : '✗ ') + (m.typed ? 'yazdığın: ' + esc(m.typed) : 'boş bıraktın') + (m.note ? ' · ' + esc(m.note) : '') + '</span></span>' + spkHTML(row.text, row.lang) + '</div>';
+      }).join('');
       const exs = LANGS.filter((l) => w.example && w.example[l]).map((l) => '<div class="exline"><span class="chip ' + l + '">' + l.toUpperCase() + '</span><span>' + esc(w.example[l]) + '</span></div>').join('');
-      const sug = r ? (r.ok ? 'ok' : 'miss') : null;
+      const sug = r ? (r.sug || (r.ok ? 'ok' : 'miss')) : null;
       const cls = (g, base) => base + (sug && sug !== g ? ' dim' : '');
-      html += '<div class="answer">' + rows + (exs ? '<div class="exs">' + exs + '</div>' : '') + (w.note ? '<p class="hint">' + esc(w.note) + '</p>' : '') + '</div>' +
+      html += '<div class="answer">' + rows + (exs ? '<div class="exs">' + exs + '</div>' : '') + (w.note ? '<p class="hint">' + esc(w.note) + '</p>' : '') + (rev.fallbackNote && r && r.kind === 'write' ? '<p class="hint">' + esc(rev.fallbackNote) + '</p>' : '') + '</div>' +
         '<div class="grade">' +
           '<button class="' + cls('miss', 'btn bad') + '" type="button" id="missBtn">Bilmedim<small>birazdan yine</small></button>' +
           '<button class="' + cls('hard', 'btn hard') + '" type="button" id="hardBtn">Zor<small>' + hardInterval(w) + ' gün sonra</small></button>' +
@@ -1127,6 +1204,13 @@ details.settings .stack { padding-top: 12px; }
         const chosen = b.dataset.c; const correct = answerOf(w).text;
         rev.result = { choices, chosen, correct, ok: normAns(chosen) === normAns(correct) }; rev.revealed = true; renderReview();
       }));
+    }
+    const wb = $('#writeBox');
+    if (wb && !rev.checking) {
+      const inputs = Array.from(wb.querySelectorAll('input'));
+      inputs.forEach((inp, i) => inp.addEventListener('keydown', (e) => { if (e.key === 'Enter' && i < inputs.length - 1) { e.preventDefault(); inputs[i + 1].focus(); } }));
+      wb.addEventListener('submit', (e) => { e.preventDefault(); rev.fallbackNote = ''; checkWritten(id); });
+      if (inputs[0]) setTimeout(() => inputs[0].focus(), 50);
     }
     if (!rev.revealed && quiz === 'type') {
       const inp = $('#typeIn'); const check = () => {

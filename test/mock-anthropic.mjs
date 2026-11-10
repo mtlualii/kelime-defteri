@@ -6,6 +6,12 @@ const port = Number(process.argv[2] || 9797);
 const seen = [];
 
 function answerFor(prompt) {
+  if (/typed its meaning from memory/.test(prompt)) {
+    // answer check: anything containing "yanlis" is wrong, the rest is accepted as a synonym
+    const out = {};
+    for (const m of prompt.matchAll(/\n- (\w+) \([A-Za-z]+\): "([^"]*)"/g)) out[m[1]] = { ok: !/yanlis/.test(m[2]), note: /yanlis/.test(m[2]) ? 'başka bir anlam' : '' };
+    return out;
+  }
   if (/JSON array/i.test(prompt) || /"input"/.test(prompt) && /array/i.test(prompt)) {
     // bulk: echo each listed term as an English word
     const m = prompt.match(/\n- (.+)/g) || [];
