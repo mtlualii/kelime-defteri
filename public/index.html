@@ -458,6 +458,10 @@ details.settings .stack { padding-top: 12px; }
             <div class="grow"><b>Erişim şifresi</b><p class="hint" id="tokenHint">—</p></div>
             <button class="btn small" type="button" id="tokenBtn">Değiştir</button>
           </div>
+          <div class="srow">
+            <div class="grow"><b>İlerlemeyi sıfırla</b><p class="hint">Bütün kelimeler yeni eklenmiş gibi olur; hepsi bugün tekrar sorulur. Kelimeler silinmez.</p></div>
+            <button class="btn small danger" type="button" id="resetBtn">Sıfırla</button>
+          </div>
         </section>
       </div>
     </section>
@@ -1537,6 +1541,14 @@ details.settings .stack { padding-top: 12px; }
     } finally { btn.disabled = false; }
   });
   $('#tokenBtn').addEventListener('click', () => showTokenCard(''));
+  $('#resetBtn').addEventListener('click', () => {
+    if (!data.words.length) { toast('Kelime yok.'); return; }
+    if (!window.confirm('Bütün kelimelerin tekrar geçmişi silinsin ve hepsi yeni gibi bugün sorulsun mu?')) return;
+    const today = todayISO(), now = nowISO();
+    data.words.forEach((w) => { Object.assign(w, { due: today, interval: 0, reps: 0, lapses: 0, ease: 2.5, status: 'new', updatedAt: now }); delete w.lastReview; delete w.lastResult; });
+    persist('words');
+    toast(data.words.length + ' kelime sıfırlandı; hepsi bugün tekrarda.');
+  });
 
   // ---------- push notifications ----------
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
