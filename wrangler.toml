@@ -1,0 +1,35 @@
+name = "kelime-defteri"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Static PWA files. Requests to /api/* go to the Worker first; everything else is served from ./public.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+# One SQLite-backed Durable Object holds the word mirror, push subscriptions and VAPID keys.
+[[durable_objects.bindings]]
+name = "STORE"
+class_name = "Store"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Store"]
+
+# 08:35 Europe/Istanbul (UTC+3, no DST) → 05:35 UTC
+[triggers]
+crons = ["35 5 * * *"]
+
+[observability]
+enabled = true
+
+[vars]
+MODEL = "claude-opus-5-5"
+EFFORT = "low"
+MAX_TOKENS = "4096"
+
+# Secrets (set in the Cloudflare dashboard → Worker → Settings → Variables and Secrets, type "Secret"):
+#   APP_TOKEN          the password the app asks for once (anything you choose)
+#   ANTHROPIC_API_KEY  from console.anthropic.com → API Keys

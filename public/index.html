@@ -1,0 +1,1630 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kelime Defteri</title>
+<meta name="description" content="Bilmediğin kelimeleri kaydet; İngilizce, Almanca ve Türkçe karşılıklarıyla aralıklı tekrar et.">
+<meta name="theme-color" content="#F1F3F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12161D" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kelime">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: phone-first single column (max 640px). Sticky header with the word count and
+   streak, fixed bottom tab bar (Ekle / Tekrar / Liste), stacked cards with gap. Language
+   is encoded as a chip color (EN blue, DE gold, TR red, any other source language grey). */
+:root {
+  --bg: #F1F3F7;
+  --card: #FFFFFF;
+  --fg: #171C26;
+  --muted: #5B6475;
+  --line: #D7DCE5;
+  --accent: #0B6B63;
+  --accent-fg: #FFFFFF;
+  --accent-soft: #DDF1EC;
+  --en: #2F5BEA;  --en-soft: #E4EAFF;
+  --de: #9A6700;  --de-soft: #FBEFD2;
+  --tr: #C0392B;  --tr-soft: #FBE3E0;
+  --xx: #4B5565;  --xx-soft: #E3E7EE;
+  --warn: #8A5A00; --warn-soft: #FFF1D6;
+  --danger: #B3261E; --danger-soft: #FBE3E0;
+  --ok: #1B7F4B; --ok-soft: #DDF3E6;
+  --shadow: 0 1px 2px rgba(23,28,38,.06), 0 6px 18px -8px rgba(23,28,38,.14);
+  --font-display: "Bricolage Grotesque", "IBM Plex Sans", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161D; --card: #1B212B; --fg: #E8EBF0; --muted: #98A2B3; --line: #2A323F;
+    --accent: #4FD1C5; --accent-fg: #0B1F1D; --accent-soft: #16302E;
+    --en: #8FA8FF; --en-soft: #1E2743;
+    --de: #E3B341; --de-soft: #352B12;
+    --tr: #FF8A80; --tr-soft: #3B1F1D;
+    --xx: #B6BECB; --xx-soft: #2A323F;
+    --warn: #F3C56B; --warn-soft: #33290F;
+    --danger: #FF7B72; --danger-soft: #3B1F1D;
+    --ok: #5FD38D; --ok-soft: #15301F;
+    --shadow: 0 1px 2px rgba(0,0,0,.3);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161D; --card: #1B212B; --fg: #E8EBF0; --muted: #98A2B3; --line: #2A323F;
+  --accent: #4FD1C5; --accent-fg: #0B1F1D; --accent-soft: #16302E;
+  --en: #8FA8FF; --en-soft: #1E2743;
+  --de: #E3B341; --de-soft: #352B12;
+  --tr: #FF8A80; --tr-soft: #3B1F1D;
+  --xx: #B6BECB; --xx-soft: #2A323F;
+  --warn: #F3C56B; --warn-soft: #33290F;
+  --danger: #FF7B72; --danger-soft: #3B1F1D;
+  --ok: #5FD38D; --ok-soft: #15301F;
+  --shadow: 0 1px 2px rgba(0,0,0,.3);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+[hidden] { display: none !important; }
+input[type="password"] { width: 100%; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 16px; }
+html { -webkit-text-size-adjust: 100%; }
+.prefs .srow { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.prefs .srow b { display: block; font-size: 15px; }
+.prefs .srow .btn { flex: 0 0 auto; }
+.nudge { align-items: center; }
+.nudge .btn { flex: 0 0 auto; }
+.nudge .x { background: none; border: 0; color: inherit; font-size: 20px; line-height: 1; padding: 0 2px; cursor: pointer; opacity: .7; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px); background: var(--bg); z-index: 10;
+}
+.wrap {
+  max-width: 640px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* Header */
+.hdr {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 9;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+}
+.hdr .wrap { display: flex; align-items: baseline; justify-content: space-between; padding-block: 14px 10px; gap: 12px; }
+.brand { font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: -0.01em; margin: 0; }
+.brand small { font-weight: 500; color: var(--muted); font-size: 13px; margin-left: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.brand { white-space: nowrap; }
+.count { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; display: grid; justify-items: end; line-height: 1.25; }
+.count .streak { color: var(--warn); font-weight: 600; font-size: 13px; }
+
+main .wrap { padding-block: 16px calc(88px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 16px; }
+.view[hidden] { display: none !important; }
+
+/* Cards & sections */
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
+.section-title { font-family: var(--font-display); font-size: 15px; font-weight: 700; margin: 4px 0 0; letter-spacing: .02em; color: var(--muted); text-transform: uppercase; }
+.stack { display: grid; gap: 12px; }
+.row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.row > * { min-width: 0; }
+.grow { flex: 1 1 auto; }
+.hint { color: var(--muted); font-size: 13px; margin: 0; }
+.linkish { background: none; border: 0; padding: 0; font: inherit; font-size: 13px; color: var(--accent); text-decoration: underline; cursor: pointer; }
+h2.title { font-family: var(--font-display); font-size: 24px; font-weight: 700; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+
+/* Form controls */
+label.lbl { display: block; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+input[type="text"], input[type="search"], textarea, select {
+  width: 100%; font: inherit; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 16px;
+}
+textarea { resize: vertical; min-height: 44px; line-height: 1.4; }
+input.big { font-family: var(--font-display); font-size: 22px; font-weight: 500; padding: 12px 14px; }
+textarea.big { font-family: var(--font-display); font-size: 18px; font-weight: 500; min-height: 110px; }
+input:focus-visible, textarea:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.langrow { display: grid; gap: 8px; }
+input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); margin: 0; }
+
+.btn { font: inherit; font-weight: 600; font-size: 16px; border-radius: 10px; padding: 12px 16px; border: 1px solid var(--line); background: var(--card); color: var(--fg); cursor: pointer; }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+.btn.ghost { background: transparent; }
+.btn.danger { color: var(--danger); }
+.btn.bad { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.btn.hard { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.btn.small { font-size: 14px; padding: 8px 12px; }
+.btn:disabled { opacity: .55; cursor: default; }
+.btn.block { width: 100%; }
+.btnrow { display: flex; gap: 10px; flex-wrap: wrap; }
+.btnrow .btn { flex: 1 1 120px; }
+.btnrow.tight .btn { flex: 0 1 auto; }
+
+/* Speaker */
+.spk { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 0; background: transparent; color: var(--muted); cursor: pointer; flex: 0 0 auto; padding: 0; }
+.spk:hover { background: var(--accent-soft); color: var(--accent); }
+.spk svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.spk[hidden] { display: none !important; }
+
+/* Language chips */
+.chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  width: 34px; height: 22px; border-radius: 6px; flex: 0 0 auto;
+  font-family: var(--font-body);
+}
+.chip.en { color: var(--en); background: var(--en-soft); }
+.chip.de { color: var(--de); background: var(--de-soft); }
+.chip.tr { color: var(--tr); background: var(--tr-soft); }
+.chip.xx { color: var(--xx); background: var(--xx-soft); }
+
+.pill { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--danger-soft); color: var(--danger); }
+
+/* Result card (single add) */
+.result .head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.result .head .pos { color: var(--muted); font-size: 13px; }
+.trow { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center; }
+.ex { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: start; }
+.ex .chip { margin-top: 9px; }
+.ex textarea { font-size: 15px; color: var(--fg); }
+.notice { display: flex; gap: 8px; align-items: flex-start; background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+.notice.err { background: var(--tr-soft); color: var(--tr); }
+.notice.good { background: var(--ok-soft); color: var(--ok); }
+.alts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; color: var(--muted); }
+.alts button { font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.alts button b { font-weight: 600; }
+
+/* Bulk add */
+.bitem { display: grid; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); }
+.bitem:first-of-type { border-top: 0; padding-top: 0; }
+.bitem .bhead { display: flex; align-items: center; gap: 10px; }
+.bitem .bhead .term { font-family: var(--font-display); font-weight: 700; font-size: 18px; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.bitem .trow input { padding: 8px 10px; font-size: 15px; }
+
+/* Word list */
+.list { display: grid; gap: 8px; }
+.word {
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+  display: grid; gap: 6px; cursor: pointer;
+}
+.word .top { display: flex; align-items: center; gap: 8px; }
+.word .term { font-family: var(--font-display); font-weight: 700; font-size: 19px; letter-spacing: -0.01em; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.word .others { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 15px; }
+.word .others span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.word .others .chip { width: 26px; height: 18px; font-size: 10px; }
+.word .more { display: none; border-top: 1px solid var(--line); padding-top: 10px; margin-top: 4px; gap: 10px; }
+.word.open .more { display: grid; }
+.word .exline { display: grid; grid-template-columns: 26px 1fr; gap: 8px; font-size: 15px; align-items: start; }
+.word .exline .chip { width: 26px; height: 18px; font-size: 10px; margin-top: 2px; }
+.word .meta { color: var(--muted); font-size: 13px; display: flex; gap: 12px; flex-wrap: wrap; }
+.word .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.word .actions .confirm { display: none; gap: 8px; align-items: center; color: var(--muted); font-size: 14px; }
+.word .actions.confirming .confirm { display: flex; }
+.word .actions.confirming .del, .word .actions.confirming .edit-btn { display: none; }
+.word .due { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.word .due.now { color: var(--accent); font-weight: 600; }
+.word .edit { cursor: default; }
+.word .edit .ex .chip { margin-top: 9px; }
+
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.filters button { font: inherit; font-size: 14px; font-weight: 600; border: 1px solid var(--line); background: var(--card); color: var(--muted); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.filters button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.filters button.hardf[aria-pressed="true"] { background: var(--danger); border-color: var(--danger); color: #fff; }
+.toolbar { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.toolbar select { width: auto; padding: 8px 10px; font-size: 14px; }
+
+.empty { text-align: left; color: var(--muted); display: grid; gap: 8px; }
+.empty h2 { font-family: var(--font-display); color: var(--fg); font-size: 20px; margin: 0; text-wrap: balance; }
+.empty p { margin: 0; font-size: 15px; }
+
+/* Review (Tekrar) */
+.rtop { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.bar { height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .25s; }
+.rcard { padding: 22px 18px; display: grid; gap: 16px; }
+.rcard .front { display: grid; gap: 10px; justify-items: start; }
+.rcard .front .line { display: flex; align-items: center; gap: 10px; width: 100%; }
+.rcard .big { font-family: var(--font-display); font-weight: 700; font-size: 32px; line-height: 1.15; letter-spacing: -0.015em; overflow-wrap: anywhere; text-wrap: balance; margin: 0; flex: 1 1 auto; min-width: 0; }
+.rcard .sub { color: var(--muted); font-size: 14px; }
+.rcard .answer { border-top: 1px dashed var(--line); padding-top: 14px; display: grid; gap: 12px; }
+.rcard .arow { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; font-size: 20px; font-weight: 500; overflow-wrap: anywhere; }
+.rcard .arow > span:nth-child(2) { min-width: 0; }
+.rcard .exs { display: grid; gap: 6px; color: var(--muted); font-size: 15px; }
+.rcard .exline { display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: start; }
+.rcard .exline .chip { width: 26px; height: 18px; font-size: 10px; margin-top: 3px; }
+.opts { display: grid; gap: 8px; }
+.opt { font: inherit; font-size: 17px; font-weight: 500; text-align: left; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 10px; padding: 12px 14px; cursor: pointer; overflow-wrap: anywhere; }
+.opt.right { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); font-weight: 600; }
+.opt.wrong { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+.opt:disabled { cursor: default; }
+.typebox { display: grid; gap: 8px; }
+.typebox input { font-family: var(--font-display); font-size: 20px; font-weight: 500; padding: 12px 14px; }
+.grade { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.grade .btn { display: grid; gap: 2px; padding: 12px 6px; }
+.grade .btn small { font-weight: 500; font-size: 12px; opacity: .8; }
+.grade .btn.dim { opacity: .6; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stats.four { grid-template-columns: repeat(4, 1fr); }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 2px; min-width: 0; }
+.stat b { font-family: var(--font-display); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 12px; }
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+.modes.three { grid-template-columns: repeat(3, 1fr); }
+.modes.four { grid-template-columns: repeat(4, 1fr); }
+.modes button { font: inherit; font-size: 13px; font-weight: 500; border: 0; background: transparent; color: var(--muted); padding: 8px 6px; border-radius: 7px; cursor: pointer; }
+.modes button[aria-pressed="true"] { background: var(--card); color: var(--fg); box-shadow: var(--shadow); font-weight: 600; }
+details.settings summary { cursor: pointer; color: var(--muted); font-size: 14px; font-weight: 600; list-style: none; display: flex; align-items: center; gap: 6px; }
+details.settings summary::-webkit-details-marker { display: none; }
+details.settings summary::before { content: "▸"; font-size: 12px; transition: transform .15s; }
+details.settings[open] summary::before { transform: rotate(90deg); }
+details.settings .stack { padding-top: 12px; }
+
+/* Tab bar */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 9;
+  background: var(--card); border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.tabbar .wrap { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; padding-block: 6px; }
+.tab { position: relative; font: inherit; font-weight: 600; font-size: 14px; background: transparent; border: 0; color: var(--muted); padding: 10px 6px; border-radius: 10px; cursor: pointer; display: grid; justify-items: center; gap: 2px; }
+.tab svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tab[aria-current="page"] { color: var(--accent); background: var(--accent-soft); }
+.badge { position: absolute; top: 4px; left: calc(50% + 8px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--tr); color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; font-variant-numeric: tabular-nums; }
+
+/* Toast */
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: 14px; font-weight: 600;
+  opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 11; max-width: calc(100vw - 32px);
+  display: flex; gap: 12px; align-items: center;
+}
+.toast.show { opacity: 1; pointer-events: auto; }
+.toast button { font: inherit; font-weight: 700; background: transparent; border: 0; color: var(--accent-soft); text-decoration: underline; cursor: pointer; padding: 0; white-space: nowrap; }
+.spin { display: inline-block; width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -3px; margin-right: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .toast, .bar i, details.settings summary::before { transition: none; } .spin { animation: none; } }
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div class="wrap">
+    <h1 class="brand">Kelime Defteri<small>EN · DE · TR</small></h1>
+    <div class="count"><span id="count">0 kelime</span><span id="streak" class="streak" hidden></span></div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+
+    <!-- ADD VIEW -->
+    <section class="view" id="view-ekle">
+      <div class="stack">
+        <section class="card stack" id="tokenCard" hidden>
+          <h2 class="title" style="font-size:20px">Erişim şifresi</h2>
+          <p class="hint">Çeviri, yedekleme ve sabah bildirimi için Cloudflare'de belirlediğin şifreyi (APP_TOKEN) bir kez gir. Bu cihazda saklanır; kelimeler şifre olmadan da bu cihaza kaydedilir.</p>
+          <form class="row" id="tokenForm" autocomplete="off">
+            <input type="password" id="tokenInput" class="grow" placeholder="Şifre" autocapitalize="off" autocorrect="off" spellcheck="false">
+            <button class="btn primary" type="submit">Bağlan</button>
+          </form>
+          <p class="hint" id="tokenMsg"></p>
+        </section>
+        <div class="notice nudge" id="pushNudge" hidden>
+          <span class="grow">Sabah hatırlatması için bildirimleri aç.</span>
+          <button class="btn small" type="button" id="nudgeBtn">Aç</button>
+          <button class="x" type="button" id="nudgeClose" aria-label="Kapat">×</button>
+        </div>
+
+        <form class="card stack" id="addForm" autocomplete="off">
+          <div>
+            <div class="row" style="justify-content:space-between;margin-bottom:6px">
+              <label class="lbl" for="term" id="termLbl" style="margin:0">Kelime veya ifade</label>
+              <button class="linkish" type="button" id="bulkToggle">Birden fazla kelime ekle</button>
+            </div>
+            <input class="big" type="text" id="term" placeholder="örn. memer, Gelassenheit" enterkeyhint="go" autocapitalize="off" autocorrect="off" spellcheck="false">
+            <textarea class="big" id="terms" placeholder="Her satıra bir kelime yaz (virgülle de ayırabilirsin). Tek seferde en fazla 20." hidden autocapitalize="off" spellcheck="false"></textarea>
+          </div>
+          <div class="langrow">
+            <label class="lbl" for="langSel">Hangi dilde yazdın?</label>
+            <select id="langSel">
+              <option value="auto">Otomatik algıla (her dil olabilir)</option>
+              <option value="en">İngilizce</option>
+              <option value="de">Almanca</option>
+              <option value="tr">Türkçe</option>
+              <option value="ar">Arapça</option>
+              <option value="other">Başka bir dil…</option>
+            </select>
+            <input type="text" id="langOther" placeholder="Dil adı, örn. Farsça" autocapitalize="off" hidden>
+          </div>
+          <button class="btn primary block" type="submit" id="translateBtn">Çevir</button>
+          <p class="hint" id="formHint">Hangi dilde yazarsan yaz, İngilizce, Almanca ve Türkçe karşılığı ile bir örnek cümle otomatik dolar. Kaydetmeden önce düzeltebilirsin.</p>
+        </form>
+
+        <div id="transErr" class="notice err" hidden></div>
+
+        <section class="card result" id="result" hidden>
+          <div class="head">
+            <span class="chip" id="rLangChip">EN</span>
+            <span class="pos" id="rLangName"></span>
+            <span class="pos" id="rPos"></span>
+            <span class="pill" id="rDup" hidden>Zaten listende</span>
+          </div>
+          <div class="notice" id="rFix" hidden style="margin-bottom:12px"></div>
+          <div class="alts" id="rAlts" hidden style="margin-bottom:12px"></div>
+          <div class="stack">
+            <div class="trow" id="rSrcRow" hidden><span class="chip xx" id="rSrcChip">??</span><input type="text" id="rSrc" placeholder="Kaynak dildeki hali"></div>
+            <div class="trow"><span class="chip en">EN</span><input type="text" id="rEn" placeholder="İngilizce"></div>
+            <div class="trow"><span class="chip de">DE</span><input type="text" id="rDe" placeholder="Almanca (isimse artikeliyle)"></div>
+            <div class="trow" id="rPluralRow" hidden><span class="chip de" style="opacity:.55">PL</span><input type="text" id="rPlural" placeholder="Çoğul, örn. die Tische"></div>
+            <div class="trow"><span class="chip tr">TR</span><input type="text" id="rTr" placeholder="Türkçe"></div>
+
+            <div>
+              <label class="lbl">Örnek cümle</label>
+              <div class="stack" style="gap:8px">
+                <div class="ex"><span class="chip en">EN</span><textarea id="rExEn" rows="2" placeholder="İngilizce örnek"></textarea></div>
+                <div class="ex"><span class="chip de">DE</span><textarea id="rExDe" rows="2" placeholder="Almanca örnek"></textarea></div>
+                <div class="ex"><span class="chip tr">TR</span><textarea id="rExTr" rows="2" placeholder="Türkçe örnek"></textarea></div>
+              </div>
+            </div>
+            <div>
+              <label class="lbl" for="rNote">Not</label>
+              <input type="text" id="rNote" placeholder="Kullanım notu (isteğe bağlı)">
+            </div>
+            <div class="btnrow">
+              <button class="btn ghost" type="button" id="cancelBtn">Vazgeç</button>
+              <button class="btn primary" type="button" id="saveBtn">Kaydet</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" id="bulk" hidden>
+          <div class="row" style="justify-content:space-between;margin-bottom:8px">
+            <h2 class="title" style="font-size:20px">Toplu ekleme</h2>
+            <span class="hint" id="bulkCount"></span>
+          </div>
+          <div id="bulkList"></div>
+          <div class="btnrow" style="margin-top:12px">
+            <button class="btn ghost" type="button" id="bulkCancel">Vazgeç</button>
+            <button class="btn primary" type="button" id="bulkSave">Seçilenleri kaydet</button>
+          </div>
+        </section>
+
+        <h2 class="section-title">Son eklenenler</h2>
+        <div class="list" id="recent"></div>
+      </div>
+    </section>
+
+    <!-- REVIEW VIEW -->
+    <section class="view" id="view-tekrar" hidden>
+      <div class="stack" id="rev"></div>
+    </section>
+
+    <!-- LIST VIEW -->
+    <section class="view" id="view-liste" hidden>
+      <div class="stack">
+        <div class="stats four" id="listStats"></div>
+        <div class="filters" id="filters">
+          <button type="button" data-f="all" aria-pressed="true">Hepsi</button>
+          <button type="button" data-f="en" aria-pressed="false">İngilizce</button>
+          <button type="button" data-f="de" aria-pressed="false">Almanca</button>
+          <button type="button" data-f="tr" aria-pressed="false">Türkçe</button>
+          <button type="button" data-f="other" aria-pressed="false">Diğer diller</button>
+          <button type="button" class="hardf" id="hardFilter" aria-pressed="false">Zorlandıklarım</button>
+        </div>
+        <div class="toolbar">
+          <input type="search" id="q" placeholder="Kelime ara" autocapitalize="off" autocorrect="off" spellcheck="false">
+          <select id="sort" aria-label="Sıralama">
+            <option value="new">En yeni</option>
+            <option value="az">A → Z</option>
+            <option value="due">Tekrar günü</option>
+            <option value="hard">En zor</option>
+          </select>
+        </div>
+        <p class="hint" id="listCount"></p>
+        <div class="list" id="all"></div>
+        <div class="btnrow tight" id="exportRow" hidden>
+          <button class="btn small" type="button" id="csvBtn" hidden>CSV indir</button>
+          <button class="btn small" type="button" id="ankiBtn">Anki için kopyala</button>
+        </div>
+        <textarea id="exportBox" rows="6" hidden readonly></textarea>
+
+        <section class="card stack prefs" id="settings">
+          <h2 class="title" style="font-size:20px">Ayarlar</h2>
+          <div class="srow">
+            <div class="grow"><b>Sabah bildirimi</b><p class="hint" id="pushHint">Her sabah 08:35'te tekrar edilecek kelimeleri hatırlatır.</p><p class="hint" id="lastRemind"></p></div>
+            <button class="btn small" type="button" id="pushBtn">Bildirimleri aç</button>
+          </div>
+          <div class="notice" id="iosNotice" hidden><span>iPhone'da bildirim için: Safari'de Paylaş → Ana Ekrana Ekle, sonra uygulamayı ana ekrandan açıp şifreni girip "Bildirimleri aç"a bas.</span></div>
+          <div class="btnrow tight"><button class="btn small" type="button" id="testPushBtn" hidden>Test bildirimi gönder</button></div>
+          <div class="srow">
+            <div class="grow"><b>Yedek</b><p class="hint" id="syncHint">Kelimeler bu cihazda saklanır ve sunucuya yedeklenir.</p></div>
+            <button class="btn small" type="button" id="syncBtn">Şimdi yedekle</button>
+          </div>
+          <div class="srow">
+            <div class="grow"><b>Erişim şifresi</b><p class="hint" id="tokenHint">—</p></div>
+            <button class="btn small" type="button" id="tokenBtn">Değiştir</button>
+          </div>
+        </section>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<nav class="tabbar" aria-label="Sekmeler">
+  <div class="wrap">
+    <button class="tab" type="button" data-view="ekle" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Ekle
+    </button>
+    <button class="tab" type="button" data-view="tekrar">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.7-5.7L20 8M20 4v4h-4M20 12a8 8 0 0 1-13.7 5.7L4 16M4 20v-4h4"/></svg>Tekrar
+      <span class="badge" id="dueBadge" hidden>0</span>
+    </button>
+    <button class="tab" type="button" data-view="liste">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Liste
+    </button>
+  </div>
+</nav>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (s) => document.querySelector(s);
+  const LANGS = ['en', 'de', 'tr'];                       // the three target languages
+  const LANG_NAME = { en: 'İngilizce', de: 'Almanca', tr: 'Türkçe', ar: 'Arapça' };
+  const POS_TR = { noun: 'isim', verb: 'fiil', adjective: 'sıfat', adverb: 'zarf', phrase: 'ifade', other: '' };
+  const TTS_LANG = { en: 'en-US', de: 'de-DE', tr: 'tr-TR', ar: 'ar-SA', fa: 'fa-IR', fr: 'fr-FR', es: 'es-ES', it: 'it-IT', ru: 'ru-RU', nl: 'nl-NL', pt: 'pt-PT' };
+  // Spaced repetition ladder (Leitner-style): days until the next review after each consecutive "Bildim"
+  const LADDER = [1, 3, 7, 14, 30, 60, 120];
+  const BULK_MAX = 20;
+  const SPK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg>';
+
+  const state = {
+    db: null, sample: null, downloads: null, sampleOff: false,
+    words: [],          // from db, newest first
+    local: [],          // fallback when db is unavailable (lost on reload)
+    days: {},           // date -> {reviewed, ok, hard, miss, added}
+    lang: 'auto', filter: 'all', hardOnly: false, sort: 'new', q: '',
+    draft: null, bulk: null, busy: false, bulkMode: false,
+  };
+  // review session: ids are fixed when the session starts, data is looked up live
+  const rev = { active: false, queue: [], idx: 0, revealed: false, result: null, done: 0, missed: 0, total: 0, writing: false,
+    mode: 'word', quiz: 'card', limit: 20, fallbackNote: '' };
+  try {
+    const s = JSON.parse(localStorage.getItem('kd.settings') || '{}');
+    if (s.mode === 'meaning' || s.mode === 'word') rev.mode = s.mode;
+    if (['card', 'choice', 'type'].includes(s.quiz)) rev.quiz = s.quiz;
+    if ([10, 20, 50, 0].includes(s.limit)) rev.limit = s.limit;
+    if (['new', 'az', 'due', 'hard'].includes(s.sort)) state.sort = s.sort;
+  } catch (e) {}
+  function saveSettings() { try { localStorage.setItem('kd.settings', JSON.stringify({ mode: rev.mode, quiz: rev.quiz, limit: rev.limit, sort: state.sort })); } catch (e) {} }
+
+  // ---------- helpers ----------
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const norm = (s) => String(s ?? '').toLocaleLowerCase('tr-TR').trim().replace(/^(der|die|das|to|the|a|an)\s+/i, '');
+  const str = (v) => (v === null || v === undefined || v === 'null') ? '' : String(v).trim();
+  const isTarget = (l) => LANGS.includes(l);
+  const chipCls = (l) => 'chip ' + (isTarget(l) ? l : 'xx');
+  const chipTxt = (l) => String(l || '??').toUpperCase().slice(0, 3);
+  const pad = (n) => String(n).padStart(2, '0');
+  const localISO = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const todayISO = () => localISO(new Date());
+  const addDays = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return localISO(d); };
+  const fmtDate = (iso) => { try { return new Date(iso.length === 10 ? iso + 'T12:00:00' : iso).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }); } catch (e) { return ''; } };
+  const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  // "ممرّ (memer)" -> native part for speech, latin part for typing
+  const nativePart = (t) => { const m = String(t || '').match(/^(.*?)\s*\(([^)]*)\)\s*$/); return m ? m[1].trim() : String(t || ''); };
+  const latinPart = (t) => { const m = String(t || '').match(/\(([^)]*)\)/); return m ? m[1].trim() : ''; };
+
+  let toastTimer;
+  function toast(msg, action) {
+    const t = $('#toast'); t.innerHTML = '';
+    t.appendChild(document.createTextNode(msg));
+    if (action) { const b = document.createElement('button'); b.type = 'button'; b.textContent = action.label; b.addEventListener('click', () => { t.classList.remove('show'); action.onClick(); }); t.appendChild(b); }
+    t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), action ? 7000 : 2200);
+  }
+
+  // ---------- speech ----------
+  const canSpeak = typeof window.speechSynthesis !== 'undefined' && typeof window.SpeechSynthesisUtterance !== 'undefined';
+  function speak(text, lang) {
+    if (!canSpeak) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(nativePart(text).replace(/\s·.*$/, ''));
+      u.lang = TTS_LANG[lang] || lang || 'en-US'; u.rate = 0.92;
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  const spkHTML = (text, lang) => canSpeak && text ? '<button class="spk" type="button" data-say="' + esc(text) + '" data-lang="' + esc(lang) + '" aria-label="Seslendir">' + SPK_SVG + '</button>' : '';
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('.spk'); if (!b) return;
+    e.stopPropagation(); e.preventDefault();
+    speak(b.dataset.say, b.dataset.lang);
+  }, true);
+
+  function allWords() { return state.local.concat(state.words); }
+  function wordById(id) { return allWords().find((w) => w.id === id) || null; }
+  const isDue = (w, day) => !w.due || w.due <= (day || todayISO());
+  function dueWords(day) { return allWords().filter((w) => isDue(w, day)); }
+  const isHard = (w) => (w.lapses || 0) >= 2 || w.lastResult === 'miss';
+
+  // ---------- daily activity (streak, accuracy) ----------
+  async function bumpDay(fields) {
+    const day = todayISO();
+    const cur = Object.assign({ date: day }, state.days[day] || {});
+    Object.keys(fields).forEach((k) => { cur[k] = (cur[k] || 0) + fields[k]; });
+    state.days[day] = cur; renderStreak();
+    if (!state.db) return;
+    try { await state.db.doc('days/' + day).set(cur); } catch (e) {}
+  }
+  function streakDays() {
+    let d = todayISO();
+    if (!(state.days[d] && state.days[d].reviewed > 0)) d = addDays(d, -1);
+    let n = 0;
+    while (state.days[d] && state.days[d].reviewed > 0) { n++; d = addDays(d, -1); }
+    return n;
+  }
+  function weekStats() {
+    let reviewed = 0, right = 0, added = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = state.days[addDays(todayISO(), -i)]; if (!d) continue;
+      reviewed += d.reviewed || 0; right += (d.ok || 0) + (d.hard || 0); added += d.added || 0;
+    }
+    return { reviewed, right, added, acc: reviewed ? Math.round((right / reviewed) * 100) : null };
+  }
+  function renderStreak() {
+    const n = streakDays(); const el = $('#streak');
+    el.textContent = n ? n + ' gün seri' : ''; el.hidden = !n;
+  }
+
+  // ---------- routing ----------
+  function route() {
+    const v = location.hash === '#liste' ? 'liste' : location.hash === '#tekrar' ? 'tekrar' : 'ekle';
+    $('#view-ekle').hidden = v !== 'ekle';
+    $('#view-tekrar').hidden = v !== 'tekrar';
+    $('#view-liste').hidden = v !== 'liste';
+    document.querySelectorAll('.tab').forEach((b) => {
+      if (b.dataset.view === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    });
+    if (v === 'tekrar') renderReview();
+    window.scrollTo(0, 0);
+  }
+  document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => { location.hash = '#' + b.dataset.view; }));
+  window.addEventListener('hashchange', route);
+
+  // ---------- source language picker / bulk toggle ----------
+  $('#langSel').addEventListener('change', (e) => {
+    state.lang = e.target.value;
+    $('#langOther').hidden = state.lang !== 'other';
+    if (state.lang === 'other') $('#langOther').focus();
+  });
+  $('#bulkToggle').addEventListener('click', () => {
+    state.bulkMode = !state.bulkMode;
+    $('#term').hidden = state.bulkMode; $('#terms').hidden = !state.bulkMode;
+    $('#termLbl').textContent = state.bulkMode ? 'Kelimeler' : 'Kelime veya ifade';
+    $('#bulkToggle').textContent = state.bulkMode ? 'Tek kelime ekle' : 'Birden fazla kelime ekle';
+    $('#translateBtn').textContent = state.bulkMode ? 'Hepsini çevir' : 'Çevir';
+    (state.bulkMode ? $('#terms') : $('#term')).focus();
+  });
+
+  // ---------- translate ----------
+  const SRC_RULES = 'It can be ANY language, not only English, German or Turkish: Arabic, Persian, French, Spanish, Italian, Russian or another. Arabic or Persian words are often written in Latin letters with Turkish spelling (e.g. "memer" = Arabic ممرّ, "kitab" = Arabic كتاب). FIRST check whether the input is a real word in some language exactly as written; only if it is a word in no language at all treat it as a typo of a nearby word. Never turn a real word of one language into a different word of another language.';
+  const FIELDS = [
+    '"lang": "two-letter ISO 639-1 code of the source language, e.g. en, de, tr, ar, fa, fr",',
+    ' "langName": "Turkish name of the source language, e.g. Arapça",',
+    ' "source": "the input in its own language in dictionary form. For a language with another script (Arabic, Persian, Russian...) give the native script followed by the Latin spelling in parentheses, e.g. ممرّ (memer). For German nouns include the article.",',
+    ' "en": "English equivalent in dictionary form",',
+    ' "de": "German equivalent in dictionary form; for a noun include its article, e.g. der Tisch",',
+    ' "tr": "Turkish equivalent in dictionary form",',
+    ' "plural": "for a German noun its plural with article, e.g. die Tische; otherwise null",',
+    ' "pos": "noun" | "verb" | "adjective" | "adverb" | "phrase" | "other",',
+    ' "note": "one short note in Turkish (at most 12 words) about usage, register or a common confusion; or null",',
+    ' "example": {"en": "one natural everyday English sentence using the word", "de": "the same sentence in German", "tr": "the same sentence in Turkish"}',
+  ].join('\n');
+  const INTRO = 'You are a precise multilingual dictionary for a Turkish speaker who is learning English and German and also knows Arabic.';
+  const RULES = 'Rules: en, de and tr must always be filled, whatever the source language. If the input has several meanings, use the most common everyday one. Use natural, modern wording in all three target languages.';
+
+  function sourceLine(lang, pinned) {
+    if (pinned) return 'The input is the ' + pinned.langName + ' word/phrase "' + pinned.form + '". Interpret it only that way.';
+    if (lang === 'auto') return 'unknown. Detect it. ' + SRC_RULES;
+    if (lang === 'other') return ($('#langOther').value.trim() || 'another language than English, German or Turkish') + '. Interpret the input only in that language.';
+    return LANG_NAME[lang] + ' (' + lang + '). Interpret the input only in that language.';
+  }
+  // `pinned` = {langName, form}: the viewer picked an alternative reading of the input
+  function prompt(term, lang, pinned) {
+    return [INTRO, 'Input word or phrase: "' + term.replace(/"/g, '\\"') + '"', 'Source language: ' + sourceLine(lang, pinned), '',
+      'Reply with ONLY one JSON object and no other text, with exactly these keys:', '{' + FIELDS + ',',
+      ' "alternatives": "up to 2 OTHER plausible readings of the input, if any, as [{\\"lang\\": \\"en\\", \\"langName\\": \\"İngilizce\\", \\"form\\": \\"member\\", \\"gloss\\": \\"üye\\"}] where gloss is the Turkish meaning; or []"}',
+      '', RULES + ' If the input has several meanings, list the next one in alternatives.'].join('\n');
+  }
+  function bulkPrompt(terms, lang) {
+    return [INTRO, 'Input words or phrases (JSON array): ' + JSON.stringify(terms), 'Source language of each input: ' + sourceLine(lang, null), '',
+      'Reply with ONLY one JSON array and no other text: one object per input, in the same order, each with exactly these keys:',
+      '{"input": "the input exactly as given",', ' ' + FIELDS + '}', '', RULES].join('\n');
+  }
+  function examplePrompt(w) {
+    return [INTRO, 'Word: EN "' + w.en + '", DE "' + w.de + '", TR "' + w.tr + '"' + (w.source ? ', source ' + w.source : ''),
+      'Reply with ONLY one JSON object {"en": "...", "de": "...", "tr": "..."}: one natural everyday sentence using this word, the same sentence in all three languages.'].join('\n');
+  }
+
+  function sampleCopy(code) {
+    switch (code) {
+      case 'not_granted': case 'sampling_disabled': case 'not_declared': case 'capability_disabled': case 'capability_removed':
+        return 'Otomatik çeviri bu görünümde kapalı. Alanları elle doldurabilirsin.';
+      case 'rate_limited': return 'Çok sık istek gitti. Biraz bekleyip tekrar dene.';
+      case 'no_token': return 'Çeviri için erişim şifresini gir. Şimdilik alanları elle doldurabilirsin.';
+      case 'unauthorized': return 'Erişim şifresi yanlış; Ayarlar\'dan düzelt. Alanları elle doldurabilirsin.';
+      case 'setup': return 'Sunucuda APP_TOKEN ayarlanmamış (Cloudflare → Settings → Variables and Secrets).';
+      case 'no_api_key': return 'Çeviri anahtarı (ANTHROPIC_API_KEY) Cloudflare\'de ayarlanmamış. Alanları elle doldurabilirsin.';
+      case 'bad_api_key': return 'Anthropic API anahtarı geçersiz; Cloudflare\'de düzelt.';
+      case 'upstream': return 'Çeviri servisine ulaşılamadı. Biraz sonra tekrar dene.';
+      case 'network': return 'İnternet yok gibi. Bağlantıyı kontrol et.';
+      case 'invalid_json': case 'empty_completion': return 'Çeviri okunamadı. Bir daha dene.';
+      case 'refused': return 'Bu girdi çevrilemedi. Başka bir şekilde yazmayı dene.';
+      case 'cancelled': return '';
+      default: return 'Bağlantı sorunu oldu. Tekrar dene.';
+    }
+  }
+  const HIDE_CODES = new Set(['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed']);
+  const MANUAL_CODES = new Set(['no_token', 'unauthorized', 'setup', 'no_api_key']);   // server not usable yet: let the user fill the fields
+
+  function setBusy(on, label) {
+    state.busy = on;
+    const b = $('#translateBtn');
+    b.disabled = on;
+    b.innerHTML = on ? '<span class="spin" aria-hidden="true"></span>' + (label || 'Çevriliyor…') : (state.bulkMode ? 'Hepsini çevir' : 'Çevir');
+  }
+  function showErr(msg) { $('#transErr').textContent = msg; $('#transErr').hidden = !msg; }
+
+  async function translate(term, pinned) {
+    if (state.busy) return;
+    showErr('');
+    if (!state.sample || state.sampleOff) { openManual(term); return; }
+    setBusy(true);
+    try {
+      const r = await state.sample.json(prompt(term, state.lang, pinned), { modelTier: 'quick' });
+      applyResult(term, r);
+    } catch (err) {
+      const code = err && err.code;
+      if (HIDE_CODES.has(code)) { state.sampleOff = true; openManual(term); }
+      else if (MANUAL_CODES.has(code)) { openManual(term); if (code === 'no_token') showTokenCard(); }
+      showErr(sampleCopy(code));
+    } finally { setBusy(false); }
+  }
+
+  $('#addForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (state.bulkMode) {
+      const terms = Array.from(new Set($('#terms').value.split(/[\n,;]+/).map((t) => t.trim()).filter(Boolean)));
+      if (!terms.length) { $('#terms').focus(); return; }
+      if (terms.length === 1) { translate(terms[0], null); return; }
+      translateBulk(terms.slice(0, BULK_MAX));
+      return;
+    }
+    const term = $('#term').value.trim();
+    if (!term) { $('#term').focus(); return; }
+    translate(term, null);
+  });
+
+  function openManual(term) {
+    let lang = state.lang === 'auto' ? guessLang(term) : state.lang;
+    if (lang === 'other') lang = 'xx';
+    showResult({ typed: term, lang, langName: LANG_NAME[lang] || $('#langOther').value.trim() || '', source: isTarget(lang) ? '' : term,
+      en: lang === 'en' ? term : '', de: lang === 'de' ? term : '', tr: lang === 'tr' ? term : '',
+      plural: '', pos: 'other', note: '', example: { en: '', de: '', tr: '' }, alternatives: [] });
+    $('#formHint').textContent = 'Otomatik çeviri şu an yok; karşılıkları kendin yazabilirsin.';
+  }
+
+  function guessLang(t) {
+    if (/[؀-ۿ]/.test(t)) return 'ar';
+    if (/[çğıöşüİĞŞÇÖÜ]/.test(t)) return 'tr';
+    if (/[äöüßÄÖÜ]/.test(t) || /^(der|die|das|ein|eine)\s/i.test(t)) return 'de';
+    return 'en';
+  }
+
+  function parseEntry(typed, r) {
+    let lang = str(r.lang).toLowerCase().slice(0, 2);
+    if (!/^[a-z]{2}$/.test(lang)) lang = (state.lang !== 'auto' && state.lang !== 'other') ? state.lang : guessLang(typed);
+    const ex = (r.example && typeof r.example === 'object') ? r.example : {};
+    return {
+      typed, lang, langName: str(r.langName) || LANG_NAME[lang] || lang.toUpperCase(),
+      source: str(r.source),
+      en: str(r.en), de: str(r.de), tr: str(r.tr),
+      plural: str(r.plural), pos: POS_TR.hasOwnProperty(r.pos) ? r.pos : 'other', note: str(r.note),
+      example: { en: str(ex.en), de: str(ex.de), tr: str(ex.tr) },
+    };
+  }
+
+  function applyResult(typed, r) {
+    if (!r || typeof r !== 'object') throw { code: 'invalid_json' };
+    const d = parseEntry(typed, r);
+    d.alternatives = Array.isArray(r.alternatives) ? r.alternatives.filter((a) => a && typeof a === 'object' && str(a.form)).slice(0, 2)
+      .map((a) => ({ lang: str(a.lang).toLowerCase().slice(0, 2), langName: str(a.langName), form: str(a.form), gloss: str(a.gloss) })) : [];
+    showResult(d);
+  }
+
+  function showResult(d) {
+    state.draft = d;
+    $('#bulk').hidden = true;
+    const target = isTarget(d.lang);
+    const chip = $('#rLangChip'); chip.textContent = chipTxt(d.lang); chip.className = chipCls(d.lang);
+    $('#rLangName').textContent = d.langName || '';
+    $('#rPos').textContent = POS_TR[d.pos] ? '· ' + POS_TR[d.pos] : '';
+
+    // a source language outside EN/DE/TR gets its own row at the top
+    $('#rSrcRow').hidden = target;
+    $('#rSrcChip').textContent = chipTxt(d.lang);
+    $('#rSrc').value = d.source || d.typed;
+
+    $('#rEn').value = d.en; $('#rDe').value = d.de; $('#rTr').value = d.tr;
+    $('#rPlural').value = d.plural;
+    $('#rPluralRow').hidden = !(d.pos === 'noun' || d.plural || (d.lang === 'de' && d.pos === 'other'));
+    $('#rExEn').value = d.example.en; $('#rExDe').value = d.example.de; $('#rExTr').value = d.example.tr;
+    $('#rNote').value = d.note;
+
+    const dup = findDup(d.lang, target ? (d[d.lang] || d.typed) : (d.source || d.typed));
+    $('#rDup').hidden = !dup;
+
+    // say so when the typed form was changed (typo correction), so nothing happens silently
+    const src = target ? (d[d.lang] || '') : (d.source || '');
+    const changed = target ? (src && norm(src) !== norm(d.typed)) : (src && !norm(src).includes(norm(d.typed)) && norm(d.typed) !== norm(src));
+    $('#rFix').textContent = changed ? '“' + d.typed + '” yazdın, “' + src + '” olarak anladım. Yanlışsa aşağıdaki alanı düzelt veya başka bir okuma seç.' : '';
+    $('#rFix').hidden = !changed;
+
+    // alternative readings of the input
+    const alts = $('#rAlts');
+    alts.innerHTML = '';
+    if (d.alternatives && d.alternatives.length) {
+      const lbl = document.createElement('span'); lbl.textContent = 'Bunu mu demek istedin?'; alts.appendChild(lbl);
+      d.alternatives.forEach((a) => {
+        const b = document.createElement('button'); b.type = 'button';
+        b.innerHTML = (a.langName ? esc(a.langName) + ' ' : '') + '<b>' + esc(a.form) + '</b>' + (a.gloss ? ' · ' + esc(a.gloss) : '');
+        b.addEventListener('click', () => translate(d.typed, { langName: a.langName || a.lang, form: a.form }));
+        alts.appendChild(b);
+      });
+    }
+    alts.hidden = !alts.childElementCount;
+
+    $('#result').hidden = false;
+    $('#result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function findDup(lang, term) {
+    const n = norm(term); if (!n) return null;
+    return allWords().find((w) => w.lang === lang && (norm(w.term) === n || norm(w[lang]) === n)) || null;
+  }
+
+  $('#cancelBtn').addEventListener('click', () => { $('#result').hidden = true; state.draft = null; $('#term').focus(); });
+
+  // ---------- save ----------
+  function buildDoc(d, vals, source) {
+    const target = isTarget(d.lang);
+    return {
+      term: target ? vals[d.lang] : source, lang: d.lang, langName: d.langName || '', typed: d.typed, source: target ? '' : source,
+      en: vals.en, de: vals.de, tr: vals.tr,
+      plural: vals.plural || '', pos: d.pos, note: vals.note || '',
+      example: { en: vals.exEn || '', de: vals.exDe || '', tr: vals.exTr || '' },
+      createdAt: new Date().toISOString(),
+      // spaced-repetition state: a new word is due today
+      due: todayISO(), interval: 0, reps: 0, lapses: 0, ease: 2.5, status: 'new',
+    };
+  }
+  async function persistNew(doc) {
+    if (state.db) await state.db.collection('words').add(doc);
+    else { state.local.unshift(Object.assign({ id: 'local-' + Date.now() + Math.random().toString(36).slice(2, 6), _local: true }, doc)); renderAll(); }
+  }
+  function saveErrCopy(code) {
+    return code === 'quota_exceeded' ? 'Kayıt alanı doldu; birkaç kelime silmen gerekiyor.'
+      : code === 'invalid_argument' ? 'Bu görünümde kayıt yetkin yok.' : 'Kaydedilemedi. Tekrar dene.';
+  }
+
+  $('#saveBtn').addEventListener('click', async () => {
+    const d = state.draft; if (!d) return;
+    const target = isTarget(d.lang);
+    const vals = { en: $('#rEn').value.trim(), de: $('#rDe').value.trim(), tr: $('#rTr').value.trim(), plural: $('#rPlural').value.trim(), note: $('#rNote').value.trim(),
+      exEn: $('#rExEn').value.trim(), exDe: $('#rExDe').value.trim(), exTr: $('#rExTr').value.trim() };
+    if (target && !vals[d.lang]) vals[d.lang] = d.typed;
+    const source = target ? '' : ($('#rSrc').value.trim() || d.typed);
+    const doc = buildDoc(d, vals, source);
+    const btn = $('#saveBtn'); btn.disabled = true;
+    try {
+      await persistNew(doc);
+      bumpDay({ added: 1 });
+      toast('Kaydedildi: ' + doc.term);
+      $('#result').hidden = true; state.draft = null;
+      $('#term').value = ''; $('#term').focus();
+    } catch (err) { showErr(saveErrCopy(err && err.code)); }
+    finally { btn.disabled = false; }
+  });
+
+  // ---------- bulk add ----------
+  async function translateBulk(terms) {
+    if (state.busy) return;
+    showErr('');
+    let entries;
+    if (!state.sample || state.sampleOff) {
+      entries = terms.map((t) => { let lang = state.lang === 'auto' ? guessLang(t) : state.lang; if (lang === 'other') lang = 'xx';
+        return { typed: t, lang, langName: LANG_NAME[lang] || '', source: isTarget(lang) ? '' : t, en: lang === 'en' ? t : '', de: lang === 'de' ? t : '', tr: lang === 'tr' ? t : '', plural: '', pos: 'other', note: '', example: { en: '', de: '', tr: '' } }; });
+    } else {
+      setBusy(true, terms.length + ' kelime çevriliyor…');
+      try {
+        const arr = await state.sample.json(bulkPrompt(terms, state.lang), { modelTier: 'quick' });
+        if (!Array.isArray(arr)) throw { code: 'invalid_json' };
+        entries = terms.map((t, i) => {
+          const r = arr.find((x) => x && typeof x === 'object' && norm(x.input) === norm(t)) || arr[i];
+          return (r && typeof r === 'object') ? parseEntry(t, r) : null;
+        });
+      } catch (err) {
+        const code = err && err.code;
+        if (HIDE_CODES.has(code)) state.sampleOff = true;
+        if (code === 'no_token') showTokenCard();
+        showErr(sampleCopy(code)); setBusy(false); return;
+      }
+      setBusy(false);
+    }
+    state.bulk = entries.map((e, i) => ({ entry: e, typed: terms[i], on: !!e }));
+    renderBulk();
+  }
+
+  function renderBulk() {
+    const items = state.bulk; if (!items) return;
+    $('#result').hidden = true;
+    $('#bulkList').innerHTML = items.map((it, i) => {
+      const d = it.entry;
+      if (!d) return '<div class="bitem"><div class="bhead"><input type="checkbox" disabled><span class="term">' + esc(it.typed) + '</span><span class="pill bad">çevrilemedi</span></div></div>';
+      const dup = findDup(d.lang, isTarget(d.lang) ? d[d.lang] : (d.source || d.typed));
+      const srcRow = isTarget(d.lang) ? '' : '<div class="trow"><span class="' + chipCls(d.lang) + '">' + esc(chipTxt(d.lang)) + '</span><input type="text" data-k="src" value="' + esc(d.source || d.typed) + '"></div>';
+      return '<div class="bitem" data-i="' + i + '"><div class="bhead"><input type="checkbox" data-k="on"' + (it.on ? ' checked' : '') + ' aria-label="Bu kelimeyi ekle"><span class="term">' + esc(isTarget(d.lang) ? d[d.lang] || d.typed : d.source || d.typed) + '</span>' +
+        '<span class="hint">' + esc(d.langName || '') + (POS_TR[d.pos] ? ' · ' + POS_TR[d.pos] : '') + '</span>' + (dup ? '<span class="pill">zaten var</span>' : '') + '</div>' +
+        srcRow +
+        LANGS.map((l) => '<div class="trow"><span class="chip ' + l + '">' + l.toUpperCase() + '</span><input type="text" data-k="' + l + '" value="' + esc(d[l]) + '" placeholder="' + LANG_NAME[l] + '"></div>').join('') +
+        (d.plural ? '<div class="trow"><span class="chip de" style="opacity:.55">PL</span><input type="text" data-k="plural" value="' + esc(d.plural) + '"></div>' : '') +
+        '</div>';
+    }).join('');
+    const n = items.filter((it) => it.on && it.entry).length;
+    $('#bulkCount').textContent = n + ' / ' + items.length + ' seçili';
+    $('#bulkSave').textContent = 'Seçilenleri kaydet (' + n + ')';
+    $('#bulkSave').disabled = !n;
+    $('#bulk').hidden = false;
+    $('#bulk').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  $('#bulkList').addEventListener('change', (e) => {
+    const box = e.target.closest('input[data-k="on"]'); if (!box) return;
+    const i = Number(box.closest('.bitem').dataset.i); state.bulk[i].on = box.checked;
+    const n = state.bulk.filter((it) => it.on && it.entry).length;
+    $('#bulkCount').textContent = n + ' / ' + state.bulk.length + ' seçili';
+    $('#bulkSave').textContent = 'Seçilenleri kaydet (' + n + ')'; $('#bulkSave').disabled = !n;
+  });
+  $('#bulkCancel').addEventListener('click', () => { state.bulk = null; $('#bulk').hidden = true; });
+  $('#bulkSave').addEventListener('click', async () => {
+    const items = state.bulk; if (!items) return;
+    const btn = $('#bulkSave'); btn.disabled = true;
+    let saved = 0, failed = 0;
+    for (const [i, it] of items.entries()) {
+      if (!it.on || !it.entry) continue;
+      const el = $('#bulkList .bitem[data-i="' + i + '"]');
+      const get = (k) => { const x = el && el.querySelector('[data-k="' + k + '"]'); return x ? x.value.trim() : ''; };
+      const d = it.entry;
+      const vals = { en: get('en') || d.en, de: get('de') || d.de, tr: get('tr') || d.tr, plural: get('plural') || d.plural, note: d.note, exEn: d.example.en, exDe: d.example.de, exTr: d.example.tr };
+      if (isTarget(d.lang) && !vals[d.lang]) vals[d.lang] = d.typed;
+      const source = isTarget(d.lang) ? '' : (get('src') || d.source || d.typed);
+      try { await persistNew(buildDoc(d, vals, source)); saved++; btn.textContent = 'Kaydediliyor… ' + saved; }
+      catch (err) { failed++; }
+    }
+    if (saved) bumpDay({ added: saved });
+    toast(saved + ' kelime kaydedildi' + (failed ? ', ' + failed + ' tanesi kaydedilemedi' : ''));
+    state.bulk = null; $('#bulk').hidden = true; $('#terms').value = ''; btn.disabled = false;
+  });
+
+  // ---------- review (Tekrar) ----------
+  // what the card asks: the word itself, or (in "meaning" mode) its Turkish side
+  function frontOf(w) {
+    if (rev.mode === 'meaning' || rev.quiz === 'type') {
+      if (w.lang === 'tr') return { lang: w.en ? 'en' : 'de', text: w.en || w.de || w.term };
+      return { lang: 'tr', text: w.tr || w.term };
+    }
+    return { lang: w.lang, text: w.term };
+  }
+  function answerOf(w) {   // the single value a quiz checks against
+    const f = frontOf(w);
+    if (f.lang === w.lang) return { lang: 'tr', text: w.tr || w.en || w.de };
+    return { lang: w.lang, text: w.term };
+  }
+  function backOf(w) {
+    const f = frontOf(w);
+    const rows = [];
+    if (f.lang !== w.lang) rows.push({ lang: w.lang, text: w.term + (w.lang === 'de' && w.plural ? ' · ' + w.plural : '') });
+    LANGS.forEach((l) => { if (l !== f.lang && l !== w.lang && w[l]) rows.push({ lang: l, text: w[l] + (l === 'de' && w.plural ? ' · ' + w.plural : '') }); });
+    return rows;
+  }
+  const normAns = (s) => norm(s).replace(/\s·.*$/, '').replace(/[.,;:!?'’"“”]/g, '').replace(/\s+/g, ' ').trim();
+  function acceptable(w) {
+    const set = new Set();
+    [w.term, w.typed, w.source, latinPart(w.term), latinPart(w.source), nativePart(w.term)].forEach((t) => { const n = normAns(t); if (n) set.add(n); });
+    if (w.lang === 'tr') { [w.en, w.de].forEach((t) => { const n = normAns(t); if (n) set.add(n); }); }
+    return set;
+  }
+  function choicesFor(w) {
+    const ans = answerOf(w);
+    const seen = new Set([normAns(ans.text)]);
+    const pool = shuffle(allWords().filter((o) => o.id !== w.id).map((o) => {
+      // distractors come from the same side (meanings vs words), same language when possible
+      if (ans.lang === 'tr') return o.tr || '';
+      return o.lang === ans.lang ? o.term : (o[ans.lang] || o.term);
+    }).filter((t) => { const n = normAns(t); if (!n || seen.has(n)) return false; seen.add(n); return true; }));
+    if (pool.length < 3) return null;
+    return shuffle([ans.text].concat(pool.slice(0, 3)));
+  }
+
+  function startReview(ids) {
+    const list = rev.limit ? ids.slice(0, rev.limit) : ids.slice();
+    rev.active = true; rev.queue = list; rev.idx = 0; rev.revealed = false; rev.result = null; rev.done = 0; rev.missed = 0; rev.total = list.length; rev.fallbackNote = '';
+    renderReview();
+  }
+  function nextInterval(w) { return LADDER[Math.min(w.reps || 0, LADDER.length - 1)]; }
+  function hardInterval(w) { return Math.max(1, Math.round((w.interval || 0) * 0.6)); }
+
+  async function grade(id, g) {   // g: 'ok' | 'hard' | 'miss'
+    if (rev.writing) return;
+    const w = wordById(id); if (!w) { advance(true); return; }
+    const today = todayISO();
+    let patch;
+    if (g === 'ok') {
+      const interval = nextInterval(w); const reps = (w.reps || 0) + 1;
+      patch = { reps, interval, due: addDays(today, interval), status: interval >= 30 ? 'known' : 'review', lastReview: today, lastResult: 'ok' };
+    } else if (g === 'hard') {
+      const interval = hardInterval(w);
+      patch = { reps: Math.max(1, w.reps || 0), interval, due: addDays(today, interval), status: 'learning', lastReview: today, lastResult: 'hard' };
+    } else {
+      patch = { reps: 0, interval: 0, due: today, lapses: (w.lapses || 0) + 1, status: 'learning', lastReview: today, lastResult: 'miss' };
+    }
+    rev.writing = true;
+    try {
+      if (w._local || !state.db) { Object.assign(w, patch); renderAll(); }
+      else await state.db.doc('words/' + id).update(patch);
+    } catch (err) { toast('Kaydedilemedi, bağlantıyı kontrol et.'); rev.writing = false; return; }
+    rev.writing = false;
+    const f = { reviewed: 1 }; f[g] = 1; bumpDay(f);
+    advance(g !== 'miss');
+  }
+
+  function advance(passed) {
+    const id = rev.queue[rev.idx];
+    rev.queue.splice(rev.idx, 1);
+    if (passed) rev.done++; else { rev.missed++; rev.queue.push(id); }   // a missed word comes back at the end
+    rev.revealed = false; rev.result = null;
+    if (rev.idx >= rev.queue.length) rev.idx = 0;
+    renderReview();
+  }
+
+  function segHTML(id, cls, options, current) {
+    return '<div class="modes ' + cls + '" id="' + id + '">' + options.map(([v, label]) => '<button type="button" data-v="' + v + '" aria-pressed="' + (String(current) === String(v)) + '">' + label + '</button>').join('') + '</div>';
+  }
+
+  function renderReview() {
+    const el = $('#rev'); if (!el) return;
+    const words = allWords();
+    const due = dueWords();
+    const tomorrow = words.filter((w) => w.due && w.due > todayISO() && w.due <= addDays(todayISO(), 1)).length;
+    const wk = weekStats(); const sd = streakDays();
+    const todayD = state.days[todayISO()] || {};
+
+    if (!rev.active) {
+      const settings = '<details class="settings"><summary>Ayarlar: ' + ({ card: 'kart', choice: 'çoktan seçmeli', type: 'yazarak' }[rev.quiz]) + ' · ' + (rev.limit ? 'tur başına ' + rev.limit : 'hepsi') + '</summary><div class="stack">' +
+        '<div><label class="lbl">Nasıl sorsun?</label>' + segHTML('quizSeg', 'three', [['card', 'Kart'], ['choice', 'Çoktan seçmeli'], ['type', 'Yazarak']], rev.quiz) + '</div>' +
+        (rev.quiz === 'type' ? '<p class="hint">Yazarak modunda hep Türkçesini görüp kelimeyi yazarsın.</p>' :
+          '<div><label class="lbl">Kart neyi göstersin?</label>' + segHTML('modeSeg', '', [['word', 'Kelimeyi gör, anlamı hatırla'], ['meaning', 'Türkçesini gör, kelimeyi hatırla']], rev.mode) + '</div>') +
+        '<div><label class="lbl">Tur başına kelime</label>' + segHTML('limitSeg', 'four', [[10, '10'], [20, '20'], [50, '50'], [0, 'Hepsi']], rev.limit) + '</div>' +
+        '</div></details>';
+      const stats = '<div class="stats"><div class="stat"><b>' + due.length + '</b><span>bugün sırada</span></div><div class="stat"><b>' + sd + '</b><span>gün seri</span></div><div class="stat"><b>' + (wk.acc === null ? '–' : wk.acc + '%') + '</b><span>7 gün doğruluk</span></div></div>';
+      const todayLine = (todayD.reviewed || todayD.added) ? '<p class="hint">Bugün ' + (todayD.reviewed || 0) + ' tekrar yaptın' + (todayD.added ? ', ' + todayD.added + ' kelime ekledin' : '') + '. Bu hafta toplam ' + wk.reviewed + ' tekrar, ' + wk.added + ' yeni kelime.</p>' : '';
+      let main;
+      if (!words.length) {
+        main = '<div class="card empty"><h2>Önce birkaç kelime ekle</h2><p>Ekle sekmesinden kelime yazınca burada kart olarak karşına çıkar.</p></div>';
+      } else if (due.length) {
+        main = '<div class="card stack"><div><h2 class="title">Bugün ' + due.length + ' kelime</h2>' +
+          '<p class="hint">Bilemediğin kelime aynı turda tekrar gelir. Bildiklerin 1, 3, 7, 14, 30 gün diye giderek seyrekleşir.</p></div>' + todayLine +
+          '<button class="btn primary block" type="button" id="startBtn">Başla' + (rev.limit && due.length > rev.limit ? ' (' + rev.limit + ' kelime)' : '') + '</button>' + settings + '</div>';
+      } else {
+        main = '<div class="card stack"><div><h2 class="title">Bugünlük bitti</h2>' +
+          '<p class="hint">' + (tomorrow ? 'Yarın ' + tomorrow + ' kelime seni bekliyor.' : 'Yakında tekrar günü gelen kelime yok.') + '</p></div>' + todayLine +
+          '<button class="btn block" type="button" id="aheadBtn">Erken çalış: en yakın 10 kelime</button>' + settings + '</div>';
+      }
+      el.innerHTML = stats + main;
+      const seg = (id, fn) => { const s = $('#' + id); if (s) s.addEventListener('click', (e) => { const b = e.target.closest('button[data-v]'); if (!b) return; fn(b.dataset.v); saveSettings(); renderReview(); const d = $('#rev details'); if (d) d.open = true; }); };
+      seg('quizSeg', (v) => { rev.quiz = v; });
+      seg('modeSeg', (v) => { rev.mode = v; });
+      seg('limitSeg', (v) => { rev.limit = Number(v); });
+      const byDue = (a, b) => (a.due || '') < (b.due || '') ? -1 : (a.due || '') > (b.due || '') ? 1 : (a.createdAt || '') < (b.createdAt || '') ? -1 : 1;
+      const sb = $('#startBtn'); if (sb) sb.addEventListener('click', () => startReview(due.slice().sort(byDue).map((w) => w.id)));
+      const ab = $('#aheadBtn'); if (ab) ab.addEventListener('click', () => startReview(words.slice().sort(byDue).slice(0, 10).map((w) => w.id)));
+      return;
+    }
+
+    // session finished
+    if (!rev.queue.length) {
+      rev.active = false;
+      el.innerHTML = '<div class="card stack"><div><h2 class="title">Bitti!</h2>' +
+        '<p class="hint">' + rev.total + ' kelime tekrar ettin' + (rev.missed ? ', ' + rev.missed + ' kez takıldın; takıldıkların yarın yine gelecek.' : ', hepsini ilk seferde bildin.') +
+        (sd ? ' Seri: ' + sd + ' gün.' : '') + (tomorrow ? ' Yarın ' + tomorrow + ' kelime var.' : '') + '</p></div>' +
+        '<div class="btnrow"><button class="btn" type="button" id="toAdd">Yeni kelime ekle</button><button class="btn primary" type="button" id="again">' + (dueWords().length ? 'Kalanlara devam' : 'Listeye bak') + '</button></div></div>';
+      $('#toAdd').addEventListener('click', () => { location.hash = '#ekle'; });
+      $('#again').addEventListener('click', () => { if (dueWords().length) renderReview(); else location.hash = '#liste'; });
+      return;
+    }
+
+    const id = rev.queue[rev.idx];
+    const w = wordById(id);
+    if (!w) { rev.queue.splice(rev.idx, 1); if (rev.idx >= rev.queue.length) rev.idx = 0; renderReview(); return; }
+    const f = frontOf(w);
+    const progress = rev.total ? Math.round((rev.done / rev.total) * 100) : 0;
+    let quiz = rev.quiz;
+    let choices = null;
+    if (quiz === 'choice') { choices = rev.result ? rev.result.choices : choicesFor(w); if (!choices) quiz = 'card'; }
+
+    let html = '<div class="rtop"><span>' + (rev.done + 1) + ' / ' + rev.total + (rev.missed ? ' · ' + rev.missed + ' takıldı' : '') + '</span><button class="btn small ghost" type="button" id="quitBtn">Bitir</button></div>' +
+      '<div class="bar"><i style="width:' + progress + '%"></i></div>' +
+      '<div class="card rcard">' +
+        '<div class="front"><span class="' + chipCls(f.lang) + '">' + esc(chipTxt(f.lang)) + '</span><div class="line"><p class="big">' + esc(f.text) + '</p>' + spkHTML(f.text, f.lang) + '</div>' +
+          (rev.revealed ? '' : '<span class="sub">' + (quiz === 'type' ? 'Kelimeyi yaz' : quiz === 'choice' ? 'Doğru karşılığı seç' : (f.lang === w.lang ? 'Anlamını hatırlamaya çalış' : 'Kelimeyi hatırlamaya çalış')) + '</span>') + '</div>';
+
+    if (!rev.revealed) {
+      if (quiz === 'choice') {
+        html += '<div class="opts">' + choices.map((c) => '<button class="opt" type="button" data-c="' + esc(c) + '">' + esc(c) + '</button>').join('') + '</div>';
+      } else if (quiz === 'type') {
+        html += '<div class="typebox"><input type="text" id="typeIn" placeholder="…" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" autocomplete="off"><button class="btn primary block" type="button" id="checkBtn">Kontrol et</button></div>';
+      } else {
+        html += '<button class="btn primary block" type="button" id="revealBtn">Cevabı göster</button>';
+      }
+    } else {
+      const r = rev.result;
+      if (r && quiz === 'choice') {
+        html += '<div class="opts">' + r.choices.map((c) => '<button class="opt ' + (normAns(c) === normAns(r.correct) ? 'right' : (normAns(c) === normAns(r.chosen) ? 'wrong' : '')) + '" type="button" disabled>' + esc(c) + '</button>').join('') + '</div>';
+      } else if (r && quiz === 'type') {
+        html += '<div class="notice ' + (r.ok ? 'good' : 'err') + '">' + (r.ok ? 'Doğru: ' : 'Yazdığın: “' + esc(r.chosen || '—') + '” · Doğrusu: ') + '<b>' + esc(r.correct) + '</b></div>';
+      }
+      const rows = backOf(w).map((row) => '<div class="arow"><span class="' + chipCls(row.lang) + '">' + esc(chipTxt(row.lang)) + '</span><span>' + esc(row.text) + '</span>' + spkHTML(row.text, row.lang) + '</div>').join('');
+      const exs = LANGS.filter((l) => w.example && w.example[l]).map((l) => '<div class="exline"><span class="chip ' + l + '">' + l.toUpperCase() + '</span><span>' + esc(w.example[l]) + '</span></div>').join('');
+      const sug = r ? (r.ok ? 'ok' : 'miss') : null;
+      const cls = (g, base) => base + (sug && sug !== g ? ' dim' : '');
+      html += '<div class="answer">' + rows + (exs ? '<div class="exs">' + exs + '</div>' : '') + (w.note ? '<p class="hint">' + esc(w.note) + '</p>' : '') + '</div>' +
+        '<div class="grade">' +
+          '<button class="' + cls('miss', 'btn bad') + '" type="button" id="missBtn">Bilmedim<small>birazdan yine</small></button>' +
+          '<button class="' + cls('hard', 'btn hard') + '" type="button" id="hardBtn">Zor<small>' + hardInterval(w) + ' gün sonra</small></button>' +
+          '<button class="' + cls('ok', 'btn primary') + '" type="button" id="okBtn">Bildim<small>' + nextInterval(w) + ' gün sonra</small></button>' +
+        '</div>' + (sug ? '<p class="hint" style="text-align:center">1 · 2 · 3 tuşlarıyla da seçebilirsin</p>' : '');
+    }
+    html += '</div>';
+    el.innerHTML = html;
+    $('#quitBtn').addEventListener('click', () => { rev.active = false; renderReview(); });
+    const rb = $('#revealBtn'); if (rb) rb.addEventListener('click', () => { rev.revealed = true; renderReview(); });
+    const ob = $('#okBtn'); if (ob) ob.addEventListener('click', () => grade(id, 'ok'));
+    const hb = $('#hardBtn'); if (hb) hb.addEventListener('click', () => grade(id, 'hard'));
+    const mb2 = $('#missBtn'); if (mb2) mb2.addEventListener('click', () => grade(id, 'miss'));
+    if (!rev.revealed && quiz === 'choice') {
+      el.querySelectorAll('.opt').forEach((b) => b.addEventListener('click', () => {
+        const chosen = b.dataset.c; const correct = answerOf(w).text;
+        rev.result = { choices, chosen, correct, ok: normAns(chosen) === normAns(correct) }; rev.revealed = true; renderReview();
+      }));
+    }
+    if (!rev.revealed && quiz === 'type') {
+      const inp = $('#typeIn'); const check = () => {
+        const chosen = inp.value.trim(); const correct = answerOf(w).text;
+        rev.result = { chosen, correct, ok: acceptable(w).has(normAns(chosen)) }; rev.revealed = true; renderReview();
+      };
+      $('#checkBtn').addEventListener('click', check);
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); check(); } });
+      setTimeout(() => inp.focus(), 50);
+    }
+  }
+
+  // keyboard shortcuts on a desktop: space/enter reveals, 1-2-3 grades
+  document.addEventListener('keydown', (e) => {
+    if ($('#view-tekrar').hidden || !rev.active) return;
+    const tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (!rev.revealed && (e.key === ' ' || e.key === 'Enter') && $('#revealBtn')) { e.preventDefault(); $('#revealBtn').click(); }
+    else if (rev.revealed && e.key === '1') $('#missBtn') && $('#missBtn').click();
+    else if (rev.revealed && e.key === '2') $('#hardBtn') && $('#hardBtn').click();
+    else if (rev.revealed && e.key === '3') $('#okBtn') && $('#okBtn').click();
+  });
+
+  // ---------- list rendering ----------
+  function dueLabel(w) {
+    if (isDue(w)) return '<span class="due now">bugün</span>';
+    return '<span class="due">' + fmtDate(w.due) + '</span>';
+  }
+
+  function wordHTML(w) {
+    const others = LANGS.filter((l) => l !== w.lang && w[l]).map((l) =>
+      '<span><span class="chip ' + l + '">' + l.toUpperCase() + '</span>' + esc(w[l]) + '</span>').join('');
+    const exs = LANGS.filter((l) => w.example && w.example[l]).map((l) =>
+      '<div class="exline"><span class="chip ' + l + '">' + l.toUpperCase() + '</span><span>' + esc(w.example[l]) + '</span></div>').join('');
+    const meta = [];
+    if (!isTarget(w.lang) && w.langName) meta.push(esc(w.langName));
+    if (w.plural) meta.push('Çoğul: ' + esc(w.plural));
+    if (POS_TR[w.pos]) meta.push(POS_TR[w.pos]);
+    meta.push(!w.reps ? 'Yeni' : (w.interval || 0) >= 30 ? 'Oturdu' : 'Öğreniliyor');
+    if (w.reps || w.lapses) meta.push((w.reps || 0) + ' kez bildin' + (w.lapses ? ', ' + w.lapses + ' kez takıldın' : ''));
+    if (w.createdAt) meta.push('Eklendi: ' + fmtDate(w.createdAt));
+    return '<article class="word" data-id="' + esc(w.id) + '" tabindex="0">' +
+      '<div class="top"><span class="' + chipCls(w.lang) + '">' + esc(chipTxt(w.lang)) + '</span><span class="term">' + esc(w.term) + '</span>' + spkHTML(w.term, w.lang) + dueLabel(w) + '</div>' +
+      (others ? '<div class="others">' + others + '</div>' : '') +
+      '<div class="more">' +
+        (exs ? '<div class="stack" style="gap:6px">' + exs + '</div>' : '') +
+        (w.note ? '<p class="hint">' + esc(w.note) + '</p>' : '') +
+        '<div class="meta">' + meta.map((m) => '<span>' + m + '</span>').join('') + '</div>' +
+        '<div class="actions">' +
+          '<button class="btn small ghost edit-btn" type="button">Düzenle</button>' +
+          '<button class="btn small danger ghost del" type="button">Sil</button>' +
+          '<span class="confirm">Silinsin mi? <button class="btn small danger yes" type="button">Evet, sil</button><button class="btn small ghost no" type="button">Hayır</button></span>' +
+        '</div>' +
+      '</div>' +
+    '</article>';
+  }
+
+  // inline edit form for one saved word (replaces the card's expanded part)
+  function editHTML(w) {
+    const rows = [];
+    if (!isTarget(w.lang)) rows.push(['src', chipCls(w.lang), chipTxt(w.lang), w.term, 'Kaynak dildeki hali']);
+    rows.push(['en', 'chip en', 'EN', w.en, 'İngilizce'], ['de', 'chip de', 'DE', w.de, 'Almanca'], ['pl', 'chip de', 'PL', w.plural, 'Çoğul (Almanca isim)'], ['tr', 'chip tr', 'TR', w.tr, 'Türkçe']);
+    return '<div class="stack edit">' +
+      rows.map(([k, cls, c, v, ph]) => '<div class="trow"><span class="' + cls + '"' + (k === 'pl' ? ' style="opacity:.55"' : '') + '>' + esc(c) + '</span><input type="text" data-k="' + k + '" value="' + esc(v || '') + '" placeholder="' + esc(ph) + '"></div>').join('') +
+      '<div class="row" style="justify-content:space-between;margin:4px 0 -4px"><label class="lbl" style="margin:0">Örnek cümle</label>' + (state.sample && !state.sampleOff ? '<button class="linkish egen" type="button">Örnek üret</button>' : '') + '</div>' +
+      LANGS.map((l) => '<div class="ex"><span class="chip ' + l + '">' + l.toUpperCase() + '</span><textarea data-k="ex-' + l + '" rows="2">' + esc(w.example && w.example[l] || '') + '</textarea></div>').join('') +
+      '<input type="text" data-k="note" value="' + esc(w.note || '') + '" placeholder="Not (isteğe bağlı)">' +
+      '<div class="btnrow"><button class="btn small ghost ecancel" type="button">Vazgeç</button><button class="btn small primary esave" type="button">Kaydet</button></div>' +
+    '</div>';
+  }
+
+  async function saveEdit(card) {
+    const id = card.dataset.id; const w = wordById(id); if (!w) return;
+    const get = (k) => { const el = card.querySelector('[data-k="' + k + '"]'); return el ? el.value.trim() : ''; };
+    const patch = { en: get('en'), de: get('de'), tr: get('tr'), plural: get('pl'), note: get('note'), example: { en: get('ex-en'), de: get('ex-de'), tr: get('ex-tr') } };
+    if (isTarget(w.lang)) patch.term = patch[w.lang] || w.term;
+    else { patch.source = get('src') || w.term; patch.term = patch.source; }
+    const btn = card.querySelector('.esave'); if (btn) btn.disabled = true;
+    try {
+      if (w._local || !state.db) { Object.assign(w, patch); renderAll(); }
+      else await state.db.doc('words/' + id).update(patch);
+      toast('Güncellendi: ' + patch.term);
+    } catch (err) { toast('Kaydedilemedi, tekrar dene.'); if (btn) btn.disabled = false; }
+  }
+
+  async function genExample(card) {
+    const w = wordById(card.dataset.id); if (!w || !state.sample) return;
+    const get = (k) => { const el = card.querySelector('[data-k="' + k + '"]'); return el ? el.value.trim() : ''; };
+    const btn = card.querySelector('.egen'); if (btn) { btn.disabled = true; btn.textContent = 'Üretiliyor…'; }
+    try {
+      const r = await state.sample.json(examplePrompt({ en: get('en') || w.en, de: get('de') || w.de, tr: get('tr') || w.tr, source: w.source }), { modelTier: 'quick', cache: false });
+      LANGS.forEach((l) => { const el = card.querySelector('[data-k="ex-' + l + '"]'); if (el && r && str(r[l])) el.value = str(r[l]); });
+    } catch (err) { toast(sampleCopy(err && err.code) || 'Üretilemedi.'); }
+    if (btn) { btn.disabled = false; btn.textContent = 'Örnek üret'; }
+  }
+
+  function emptyHTML(kind) {
+    if (kind === 'recent') return '<div class="card empty"><h2>İlk kelimeni ekle</h2><p>Aklına gelen ya da bir yerde görüp bilmediğin kelimeyi yukarıya yaz, Çevir\'e bas. Hangi dilde olduğu fark etmez.</p><p>Telefonda hızlı açmak için: tarayıcıda Paylaş → Ana Ekrana Ekle.</p></div>';
+    return '<div class="card empty"><h2>Burası henüz boş</h2><p>Bu filtreye uyan kelime yok. Ekle sekmesinden yeni kelime yazabilirsin.</p></div>';
+  }
+
+  function matchesFilter(w) {
+    if (state.hardOnly && !isHard(w)) return false;
+    if (state.filter === 'all') return true;
+    if (state.filter === 'other') return !isTarget(w.lang);
+    return w.lang === state.filter;
+  }
+  function sorter(a, b) {
+    switch (state.sort) {
+      case 'az': return String(a.term).localeCompare(String(b.term), 'tr');
+      case 'due': return (a.due || '') < (b.due || '') ? -1 : (a.due || '') > (b.due || '') ? 1 : 0;
+      case 'hard': return ((b.lapses || 0) - (a.lapses || 0)) || ((a.reps || 0) - (b.reps || 0));
+      default: return (a.createdAt || '') < (b.createdAt || '') ? 1 : -1;
+    }
+  }
+
+  function renderAll() {
+    const words = allWords();
+    $('#count').textContent = words.length + ' kelime';
+    renderStreak();
+    const due = dueWords().length;
+    const badge = $('#dueBadge'); badge.textContent = due > 99 ? '99+' : String(due); badge.hidden = !due;
+
+    const recent = words.slice(0, 5);
+    $('#recent').innerHTML = recent.length ? recent.map(wordHTML).join('') : emptyHTML('recent');
+
+    // progress summary: how far along the ladder each word is
+    const fresh = words.filter((w) => !w.reps).length;
+    const learning = words.filter((w) => (w.reps || 0) > 0 && (w.interval || 0) < 30).length;
+    const known = words.filter((w) => (w.interval || 0) >= 30).length;
+    $('#listStats').innerHTML = [[words.length, 'toplam'], [fresh, 'yeni'], [learning, 'öğreniliyor'], [known, 'oturdu']]
+      .map(([n, l]) => '<div class="stat"><b>' + n + '</b><span>' + l + '</span></div>').join('');
+
+    const q = norm(state.q);
+    const filtered = words.filter((w) => matchesFilter(w) &&
+      (!q || LANGS.some((l) => norm(w[l]).includes(q)) || norm(w.term).includes(q) || norm(w.typed).includes(q) || norm(w.note).includes(q))).sort(sorter);
+    $('#listCount').textContent = words.length ? (filtered.length + ' / ' + words.length + ' kelime') : '';
+    $('#all').innerHTML = filtered.length ? filtered.map(wordHTML).join('') : emptyHTML('list');
+    $('#exportRow').hidden = !words.length;
+
+    // the review start screen shows live counts; an active card is left alone
+    if (!$('#view-tekrar').hidden && !rev.active) renderReview();
+  }
+
+  // open/close + edit + delete, delegated on both lists
+  document.querySelectorAll('.list').forEach((list) => {
+    list.addEventListener('click', async (e) => {
+      const card = e.target.closest('.word'); if (!card) return;
+      const actions = card.querySelector('.actions');
+      if (e.target.closest('.del')) { actions.classList.add('confirming'); return; }
+      if (e.target.closest('.no')) { actions.classList.remove('confirming'); return; }
+      if (e.target.closest('.yes')) { await removeWord(card.dataset.id); return; }
+      if (e.target.closest('.edit-btn')) {
+        const w = wordById(card.dataset.id); if (!w) return;
+        card.querySelector('.more').innerHTML = editHTML(w); card.classList.add('open');
+        const first = card.querySelector('.edit input'); if (first) first.focus();
+        return;
+      }
+      if (e.target.closest('.esave')) { await saveEdit(card); return; }
+      if (e.target.closest('.ecancel')) { renderAll(); return; }
+      if (e.target.closest('.egen')) { await genExample(card); return; }
+      if (e.target.closest('.edit') || e.target.closest('button')) return;
+      card.classList.toggle('open');
+    });
+    list.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('word')) { e.preventDefault(); e.target.classList.toggle('open'); }
+      if (e.key === 'Escape' && e.target.closest('.edit')) renderAll();
+    });
+  });
+
+  async function removeWord(id) {
+    const w = wordById(id); if (!w) return;
+    const copy = Object.assign({}, w); delete copy.id; delete copy._local;
+    try {
+      if (w._local || !state.db) { state.local = state.local.filter((x) => x.id !== id); renderAll(); }
+      else await state.db.doc('words/' + id).delete();
+      toast('Silindi: ' + w.term, { label: 'Geri al', onClick: async () => {
+        try {
+          if (w._local || !state.db) { state.local.unshift(Object.assign({ id, _local: true }, copy)); renderAll(); }
+          else await state.db.collection('words').doc(id).set(copy);
+          toast('Geri alındı: ' + w.term);
+        } catch (err) { toast('Geri alınamadı.'); }
+      } });
+    } catch (err) { toast('Silinemedi, tekrar dene.'); }
+  }
+
+  $('#filters').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.id === 'hardFilter') { state.hardOnly = !state.hardOnly; b.setAttribute('aria-pressed', String(state.hardOnly)); renderAll(); return; }
+    if (!b.dataset.f) return;
+    state.filter = b.dataset.f;
+    document.querySelectorAll('#filters button[data-f]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    renderAll();
+  });
+  $('#q').addEventListener('input', (e) => { state.q = e.target.value; renderAll(); });
+  $('#sort').value = state.sort;
+  $('#sort').addEventListener('change', (e) => { state.sort = e.target.value; saveSettings(); renderAll(); });
+
+  // ---------- export ----------
+  const csvCell = (v) => { const s = String(v ?? ''); return /[",\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  function csvText() {
+    const head = ['kelime', 'dil', 'ingilizce', 'almanca', 'turkce', 'cogul', 'tur', 'not', 'ornek_en', 'ornek_de', 'ornek_tr', 'tekrar_gunu', 'bildin', 'takildin', 'eklendi'];
+    const rows = allWords().map((w) => [w.term, w.lang, w.en, w.de, w.tr, w.plural, POS_TR[w.pos] || '', w.note, w.example && w.example.en, w.example && w.example.de, w.example && w.example.tr, w.due, w.reps || 0, w.lapses || 0, (w.createdAt || '').slice(0, 10)]);
+    return '﻿' + [head].concat(rows).map((r) => r.map(csvCell).join(',')).join('\n');
+  }
+  function ankiText() {   // front TAB back, one card per word; Anki imports TSV with HTML
+    return allWords().map((w) => {
+      const back = LANGS.filter((l) => l !== w.lang && w[l]).map((l) => l.toUpperCase() + ': ' + w[l]).join(' · ') + (w.plural ? ' · ' + w.plural : '') +
+        (w.example && w.example[w.lang] ? '<br><i>' + w.example[w.lang] + '</i>' : (w.example && w.example.en ? '<br><i>' + w.example.en + '</i>' : ''));
+      return w.term.replace(/\t/g, ' ') + '\t' + back.replace(/\t/g, ' ');
+    }).join('\n');
+  }
+  $('#csvBtn').addEventListener('click', async () => {
+    if (!state.downloads) return;
+    try { await state.downloads.save({ filename: 'kelime-defteri-' + todayISO() + '.csv', data: csvText() }); toast('CSV kaydedildi'); }
+    catch (err) { if (err && err.code !== 'declined') toast('İndirilemedi.'); }
+  });
+  $('#ankiBtn').addEventListener('click', async () => {
+    const text = ankiText(); const box = $('#exportBox');
+    try { await navigator.clipboard.writeText(text); toast('Kopyalandı. Anki\'de İçe Aktar → sekmeyle ayrılmış.'); box.hidden = true; }
+    catch (err) { box.value = text; box.hidden = false; box.focus(); box.select(); toast('Metni buradan kopyalayabilirsin.'); }
+  });
+
+  // ======================================================================
+  // PWA runtime: local store (localStorage), server API, backup sync,
+  // push notifications, service worker. Replaces the claude.ai runtime the
+  // first version of the app ran on; the rest of the app code is unchanged
+  // because `state.db`, `state.sample` and `state.downloads` keep their shape.
+  // ======================================================================
+  const DATA_KEY = 'kd.data', TOKEN_KEY = 'kd.token', SEED_KEY = 'kd.seeded', NUDGE_KEY = 'kd.nudge';
+  const nowISO = () => new Date().toISOString();
+  const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  const stamp = (w) => (w && (w.updatedAt || w.createdAt)) || '';
+  const fmtTime = (iso) => { try { return new Date(iso).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } };
+  const lsGet = (k) => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
+  const lsSet = (k, v) => { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) {} };
+
+  // ---------- local store ----------
+  const data = { words: [], days: {}, deleted: {} };
+  try {
+    const raw = JSON.parse(lsGet(DATA_KEY) || 'null');
+    if (raw && typeof raw === 'object') {
+      if (Array.isArray(raw.words)) data.words = raw.words.filter((w) => w && w.id);
+      if (raw.days && typeof raw.days === 'object') data.days = raw.days;
+      if (raw.deleted && typeof raw.deleted === 'object') data.deleted = raw.deleted;
+    }
+  } catch (e) {}
+
+  const listeners = { words: [], days: [] };
+  function snapshot(col) {
+    if (col === 'words') {
+      const arr = data.words.slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+      return { docs: arr.map((w) => ({ id: w.id, data: () => { const c = Object.assign({}, w); delete c.id; return c; } })) };
+    }
+    return { docs: Object.keys(data.days).map((k) => ({ id: k, data: () => Object.assign({}, data.days[k]) })) };
+  }
+  function emit(col) { listeners[col].forEach((cb) => { try { cb(snapshot(col)); } catch (e) {} }); }
+  function writeLocal() { try { localStorage.setItem(DATA_KEY, JSON.stringify(data)); return true; } catch (e) { toast('Yerel depolama dolu; kelime kaydedilemedi.'); return false; } }
+  function persist(col) { writeLocal(); if (col) emit(col); scheduleSync(); }
+  function docRef(col, id) {
+    return {
+      async update(patch) {
+        const w = data.words.find((x) => x.id === id); if (!w) throw { code: 'not_found' };
+        Object.assign(w, patch, { updatedAt: nowISO() }); persist('words');
+      },
+      async set(obj) {
+        if (col === 'days') { data.days[id] = Object.assign({ date: id }, obj); persist('days'); return; }
+        const i = data.words.findIndex((x) => x.id === id);
+        const doc = Object.assign({}, obj, { id, updatedAt: nowISO() });
+        if (i >= 0) data.words[i] = doc; else data.words.unshift(doc);
+        delete data.deleted[id]; persist('words');
+      },
+      async delete() { data.words = data.words.filter((x) => x.id !== id); data.deleted[id] = nowISO(); persist('words'); },
+    };
+  }
+  state.db = {
+    collection(col) {
+      return {
+        async add(doc) { const id = genId(); data.words.unshift(Object.assign({}, doc, { id, updatedAt: nowISO() })); persist('words'); return { id }; },
+        doc: (id) => docRef(col, id),
+        orderBy() { return { limit() { return { onSnapshot(cb) { listeners[col].push(cb); cb(snapshot(col)); } }; } }; },
+      };
+    },
+    doc(path) { const i = path.indexOf('/'); return docRef(path.slice(0, i), path.slice(i + 1)); },
+  };
+
+  // ---------- server API ----------
+  const getToken = () => lsGet(TOKEN_KEY);
+  async function api(method, path, body) {
+    const t = getToken(); if (!t) throw { code: 'no_token' };
+    let res;
+    try {
+      res = await fetch(path, { method, headers: Object.assign({ authorization: 'Bearer ' + t }, body ? { 'content-type': 'application/json' } : {}), body: body ? JSON.stringify(body) : undefined });
+    } catch (e) { throw { code: 'network' }; }
+    let j = null; try { j = await res.json(); } catch (e) {}
+    if (!res.ok) throw { code: (j && j.error) || (res.status === 401 ? 'unauthorized' : 'http_' + res.status), message: j && j.message, status: res.status };
+    return j;
+  }
+  state.sample = { json: async (p) => { const r = await api('POST', '/api/translate', { prompt: p }); return r.result; } };
+  state.downloads = {
+    async save({ filename, data: text }) {
+      const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.rel = 'noopener';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+      return { status: 'saved' };
+    },
+  };
+  $('#csvBtn').hidden = false;
+
+  // ---------- backup sync (phone is the source of truth; server keeps a mirror for the morning push) ----------
+  let syncTimer = null, syncing = false, dirty = false, lastPull = 0;
+  function setSyncHint(msg) { const el = $('#syncHint'); if (el) el.textContent = msg; }
+  function scheduleSync() { dirty = true; clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, 1500); }
+  async function syncNow() {
+    if (syncing) return;
+    if (!getToken()) { setSyncHint('Yedek için erişim şifresi gerekli.'); return; }
+    syncing = true; dirty = false;
+    try {
+      const r = await api('POST', '/api/sync', { words: data.words, days: data.days, deleted: data.deleted });
+      setSyncHint('Yedeklendi · ' + fmtTime(r.syncedAt) + ' · ' + r.words + ' kelime');
+    } catch (err) {
+      dirty = true; setSyncHint('Yedeklenemedi: ' + apiCopy(err.code));
+    } finally {
+      syncing = false;
+      if (dirty) { clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, 20000); }
+    }
+  }
+  // Union by id; the newer copy of a word wins; tombstones beat older copies; day counters take the max.
+  function merge(remote) {
+    let changed = false;
+    const rdel = remote.deleted || {};
+    Object.keys(rdel).forEach((id) => { if (!data.deleted[id] || rdel[id] > data.deleted[id]) { data.deleted[id] = rdel[id]; changed = true; } });
+    const byId = new Map(data.words.map((w) => [w.id, w]));
+    (remote.words || []).forEach((rw) => {
+      if (!rw || !rw.id) return;
+      const lw = byId.get(rw.id);
+      if (!lw) { if (!(data.deleted[rw.id] && data.deleted[rw.id] >= stamp(rw))) { data.words.push(rw); byId.set(rw.id, rw); changed = true; } }
+      else if (stamp(rw) > stamp(lw)) { Object.assign(lw, rw); changed = true; }
+    });
+    const before = data.words.length;
+    data.words = data.words.filter((w) => !(data.deleted[w.id] && data.deleted[w.id] >= stamp(w)));
+    if (data.words.length !== before) changed = true;
+    Object.keys(remote.days || {}).forEach((k) => {
+      const rd = remote.days[k] || {}; const ld = data.days[k] || { date: k };
+      ['reviewed', 'ok', 'hard', 'miss', 'added'].forEach((f) => { const v = Math.max(ld[f] || 0, rd[f] || 0); if (v !== (ld[f] || 0)) { ld[f] = v; changed = true; } });
+      if (!data.days[k]) { data.days[k] = ld; changed = true; }
+    });
+    return changed;
+  }
+  async function pullFromServer() {
+    if (!getToken()) return 'no_token';
+    try {
+      const r = await api('GET', '/api/sync'); lastPull = Date.now();
+      const remote = r && r.data;
+      if (!remote) { if (data.words.length) scheduleSync(); return 'empty'; }
+      const changed = merge(remote);
+      if (changed) { writeLocal(); emit('words'); emit('days'); }
+      setSyncHint('Yedek · ' + fmtTime(remote.syncedAt) + ' · ' + (remote.words || []).length + ' kelime');
+      scheduleSync();
+      return 'merged';
+    } catch (err) { setSyncHint('Yedeğe ulaşılamadı: ' + apiCopy(err.code)); return 'error'; }
+  }
+  async function maybeSeed() {
+    if (data.words.length || lsGet(SEED_KEY)) return;
+    try {
+      const r = await fetch('/seed.json', { cache: 'no-store' }); if (!r.ok) return;
+      const s = await r.json();
+      if (Array.isArray(s.words) && s.words.length) {
+        data.words = s.words.filter((w) => w && w.id && !data.deleted[w.id]);
+        data.days = Object.assign({}, s.days || {}, data.days);
+        persist(); emit('words'); emit('days');
+        toast(data.words.length + ' kelime eski defterden aktarıldı');
+      }
+      lsSet(SEED_KEY, '1');
+    } catch (e) {}
+  }
+  $('#syncBtn').addEventListener('click', async () => { if (!getToken()) { showTokenCard(); return; } setSyncHint('Yedekleniyor…'); await pullFromServer(); await syncNow(); });
+
+  // ---------- access token ----------
+  function apiCopy(code) {
+    switch (code) {
+      case 'no_token': return 'erişim şifresi girilmedi';
+      case 'unauthorized': return 'erişim şifresi yanlış';
+      case 'setup': return 'sunucuda APP_TOKEN ayarlanmamış';
+      case 'no_api_key': return 'ANTHROPIC_API_KEY ayarlanmamış';
+      case 'bad_api_key': return 'Anthropic anahtarı geçersiz';
+      case 'network': return 'bağlantı yok';
+      case 'rate_limited': return 'çok sık istek';
+      default: return 'sunucu hatası' + (code ? ' (' + code + ')' : '');
+    }
+  }
+  function showTokenCard(msg) {
+    $('#tokenCard').hidden = false; $('#tokenMsg').textContent = msg || '';
+    if (location.hash !== '#ekle' && location.hash !== '') location.hash = '#ekle';
+    $('#tokenInput').focus();
+  }
+  function refreshTokenHint() { $('#tokenHint').textContent = getToken() ? 'Bağlı' : 'Girilmedi'; }
+  $('#tokenForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const t = $('#tokenInput').value.trim(); if (!t) return;
+    const prev = getToken(); lsSet(TOKEN_KEY, t);
+    const btn = $('#tokenForm button'); btn.disabled = true; $('#tokenMsg').textContent = 'Kontrol ediliyor…';
+    try {
+      const me = await api('GET', '/api/me');
+      $('#tokenCard').hidden = true; $('#tokenInput').value = ''; $('#tokenMsg').textContent = '';
+      state.sampleOff = false; refreshTokenHint();
+      toast(me.anthropic ? 'Bağlandı' : 'Bağlandı. Çeviri için ANTHROPIC_API_KEY de gerekli.');
+      await pullFromServer(); await maybeSeed(); refreshSettings();
+    } catch (err) {
+      lsSet(TOKEN_KEY, prev); $('#tokenMsg').textContent = apiCopy(err.code).replace(/^./, (c) => c.toUpperCase()) + '.';
+    } finally { btn.disabled = false; }
+  });
+  $('#tokenBtn').addEventListener('click', () => showTokenCard(''));
+
+  // ---------- push notifications ----------
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const b64ToBytes = (s) => { const pad = '='.repeat((4 - (s.length % 4)) % 4); const raw = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, (c) => c.charCodeAt(0)); };
+  async function pushState() {
+    if (!pushSupported) return 'unsupported';
+    try { const reg = await navigator.serviceWorker.getRegistration(); const sub = reg && await reg.pushManager.getSubscription(); if (sub) return 'on'; }
+    catch (e) {}
+    return Notification.permission === 'denied' ? 'denied' : 'off';
+  }
+  async function enablePush() {
+    if (!pushSupported) { if (isIOS && !standalone) { $('#iosNotice').hidden = false; toast('Önce ana ekrana ekle.'); } else toast('Bu tarayıcı bildirim desteklemiyor.'); return; }
+    if (!getToken()) { showTokenCard('Bildirim için önce erişim şifresini gir.'); return; }
+    let perm = Notification.permission;
+    if (perm !== 'granted') perm = await Notification.requestPermission();   // must stay inside the tap
+    if (perm !== 'granted') { toast('Bildirim izni verilmedi.'); refreshSettings(); return; }
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const me = await api('GET', '/api/me');
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(me.vapid) });
+      await api('POST', '/api/subscribe', { subscription: sub.toJSON(), tz: (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Europe/Istanbul' });
+      lsSet(NUDGE_KEY, '1');
+      toast('Bildirimler açık: her sabah 08:35.');
+    } catch (err) { toast('Bildirim açılamadı: ' + apiCopy(err.code)); }
+    refreshSettings();
+  }
+  async function disablePush() {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration(); const sub = reg && await reg.pushManager.getSubscription();
+      if (sub) { await api('DELETE', '/api/subscribe', { endpoint: sub.endpoint }).catch(() => {}); await sub.unsubscribe(); }
+      toast('Bildirimler kapatıldı.');
+    } catch (e) { toast('Kapatılamadı.'); }
+    refreshSettings();
+  }
+  $('#pushBtn').addEventListener('click', async () => { (await pushState()) === 'on' ? disablePush() : enablePush(); });
+  $('#nudgeBtn').addEventListener('click', enablePush);
+  $('#nudgeClose').addEventListener('click', () => { lsSet(NUDGE_KEY, '1'); $('#pushNudge').hidden = true; });
+  $('#testPushBtn').addEventListener('click', async () => {
+    const btn = $('#testPushBtn'); btn.disabled = true;
+    try { const r = await api('POST', '/api/test-push'); toast(r.sent ? 'Test bildirimi gönderildi (' + r.sent + ')' : 'Gönderilemedi: ' + JSON.stringify(r.results && r.results[0] && r.results[0].status)); }
+    catch (err) { toast('Gönderilemedi: ' + apiCopy(err.code)); }
+    btn.disabled = false;
+  });
+
+  async function refreshSettings(me) {
+    refreshTokenHint();
+    const ps = await pushState();
+    const btn = $('#pushBtn'), hint = $('#pushHint');
+    $('#iosNotice').hidden = !(isIOS && !standalone);
+    if (ps === 'unsupported') { btn.hidden = true; hint.textContent = isIOS && !standalone ? 'iPhone\'da bildirim için uygulamayı ana ekrana eklemen gerekir.' : 'Bu tarayıcı bildirim desteklemiyor.'; }
+    else if (ps === 'denied') { btn.hidden = true; hint.textContent = 'Bildirim izni reddedilmiş; tarayıcı/uygulama ayarlarından aç.'; }
+    else { btn.hidden = false; btn.textContent = ps === 'on' ? 'Kapat' : 'Bildirimleri aç'; hint.textContent = ps === 'on' ? 'Açık. Her sabah 08:35\'te tekrar edilecek kelimeleri hatırlatır.' : 'Her sabah 08:35\'te tekrar edilecek kelimeleri hatırlatır.'; }
+    $('#testPushBtn').hidden = ps !== 'on';
+    $('#pushNudge').hidden = !(ps === 'off' && getToken() && !lsGet(NUDGE_KEY)) ;
+    if (me && me.lastRemind && me.lastRemind.at) $('#lastRemind').textContent = 'Son gönderim: ' + fmtTime(me.lastRemind.at) + ' · ' + me.lastRemind.sent + ' bildirim';
+  }
+
+  // ---------- service worker ----------
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').then((reg) => {
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing; if (!nw) return;
+          nw.addEventListener('statechange', () => { if (nw.state === 'installed' && navigator.serviceWorker.controller) toast('Yeni sürüm hazır', { label: 'Yenile', onClick: () => location.reload() }); });
+        });
+      }).catch(() => {});
+    });
+  }
+
+  // ---------- boot ----------
+  route();
+  renderAll();
+  emit('words'); emit('days');
+  state.db.collection('words').orderBy().limit().onSnapshot((snap) => { state.words = snap.docs.map((d) => Object.assign({ id: d.id }, d.data())); renderAll(); });
+  state.db.collection('days').orderBy().limit().onSnapshot((snap) => {
+    const m = {}; snap.docs.forEach((d) => { m[d.id] = d.data(); }); state.days = m;
+    renderStreak(); if (!$('#view-tekrar').hidden && !rev.active) renderReview();
+  });
+  (async () => {
+    if (!getToken()) { $('#tokenCard').hidden = false; await maybeSeed(); refreshSettings(); return; }
+    let me = null; try { me = await api('GET', '/api/me'); } catch (err) { if (err.code === 'unauthorized' || err.code === 'setup') showTokenCard(apiCopy(err.code).replace(/^./, (c) => c.toUpperCase()) + '.'); else setSyncHint(apiCopy(err.code)); }
+    await pullFromServer(); await maybeSeed(); refreshSettings(me);
+  })();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && getToken() && Date.now() - lastPull > 60000) pullFromServer(); });
+})();
+</script>
+</body>
+</html>
