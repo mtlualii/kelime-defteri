@@ -317,6 +317,23 @@ details.settings .stack { padding-top: 12px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .toast, .bar i, details.settings summary::before { transition: none; } .spin { animation: none; } }
 
+/* ---------- stage groups in the list ---------- */
+.grp { display: grid; gap: 8px; }
+.grp + .grp { margin-top: 10px; }
+.grp > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 4px 2px; }
+.grp > summary::-webkit-details-marker { display: none; }
+.grp > summary::before { content: "▸"; color: var(--muted); font-size: 12px; transition: transform .15s; }
+.grp[open] > summary::before { transform: rotate(90deg); }
+.grp .gname { font-family: var(--font-display); font-weight: 700; font-size: 17px; display: grid; line-height: 1.15; flex: 1 1 auto; min-width: 0; }
+.grp .gname small { font-family: var(--font-body); font-weight: 500; font-size: 12px; color: var(--muted); }
+.grp .gcount { min-width: 26px; height: 24px; padding: 0 8px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); display: grid; place-items: center; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.grp .dots { display: flex; gap: 3px; }
+.grp .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.grp .dots i.on { background: var(--accent); }
+.grp[data-k="0"] .gname { color: var(--en); }
+.grp[data-k="1"] .gname { color: var(--danger); }
+#all:has(.grp) { display: block; }
+
 /* ---------- visual polish ---------- */
 body { background: radial-gradient(900px 500px at -10% -10%, var(--glow-1), transparent 60%), radial-gradient(700px 420px at 110% 0%, var(--glow-2), transparent 60%), var(--bg); background-attachment: fixed; }
 body::before { background: var(--glass); }
@@ -530,6 +547,7 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
         <div class="toolbar">
           <input type="search" id="q" placeholder="Kelime ara" autocapitalize="off" autocorrect="off" spellcheck="false">
           <select id="sort" aria-label="Sıralama">
+            <option value="stage">Tekrar aşaması</option>
             <option value="new">En yeni</option>
             <option value="az">A → Z</option>
             <option value="due">Tekrar günü</option>
@@ -606,7 +624,7 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
     words: [],          // from db, newest first
     local: [],          // fallback when db is unavailable (lost on reload)
     days: {},           // date -> {reviewed, ok, hard, miss, added}
-    lang: 'auto', filter: 'all', hardOnly: false, sort: 'new', q: '',
+    lang: 'auto', filter: 'all', hardOnly: false, sort: 'stage', q: '',
     draft: null, bulk: null, busy: false, bulkMode: false,
   };
   // review session: ids are fixed when the session starts, data is looked up live
@@ -617,9 +635,9 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
     if (s.mode === 'meaning' || s.mode === 'word') rev.mode = s.mode;
     if (['card', 'choice', 'type'].includes(s.quiz)) rev.quiz = s.quiz;
     if ([10, 20, 50, 0].includes(s.limit)) rev.limit = s.limit;
-    if (['new', 'az', 'due', 'hard'].includes(s.sort)) state.sort = s.sort;
+    if (s.v === 2 && ['stage', 'new', 'az', 'due', 'hard'].includes(s.sort)) state.sort = s.sort;   // older saves get the grouped view
   } catch (e) {}
-  function saveSettings() { try { localStorage.setItem('kd.settings', JSON.stringify({ mode: rev.mode, quiz: rev.quiz, limit: rev.limit, sort: state.sort })); } catch (e) {} }
+  function saveSettings() { try { localStorage.setItem('kd.settings', JSON.stringify({ mode: rev.mode, quiz: rev.quiz, limit: rev.limit, sort: state.sort, v: 2 })); } catch (e) {} }
 
   // ---------- helpers ----------
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1422,6 +1440,41 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
     }
   }
 
+  // ---- grouping by spaced-repetition stage (the ladder step a word is on)
+  function stageOf(w) {
+    if (!w.reps && !w.lapses && !w.lastReview) return 0;                 // never reviewed
+    if (!w.interval) return 1;                                           // missed: back to the start
+    const i = LADDER.findIndex((d) => w.interval <= d);
+    return i === -1 ? LADDER.length + 1 : i + 2;
+  }
+  function stageLabel(k) {
+    if (k === 0) return ['Yeni', 'henüz hiç tekrar edilmedi'];
+    if (k === 1) return ['Takıldıkların', 'baştan başlıyor'];
+    const d = LADDER[k - 2] || LADDER[LADDER.length - 1];
+    return [(k - 1) + '. aşama', d + ' günde bir' + (d >= 30 ? ' · oturdu' : '')];
+  }
+  const openStages = new Set();   // groups the user collapsed are remembered for this visit
+  function groupedHTML(list) {
+    const groups = new Map();
+    list.forEach((w) => { const k = stageOf(w); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(w); });
+    const byDue = (a, b) => (a.due || '') < (b.due || '') ? -1 : (a.due || '') > (b.due || '') ? 1 : String(a.term).localeCompare(String(b.term), 'tr');
+    const steps = LADDER.length + 1;
+    return Array.from(groups.keys()).sort((a, b) => a - b).map((k) => {
+      const [name, sub] = stageLabel(k); const ws = groups.get(k).sort(byDue);
+      const today = ws.filter((w) => isDue(w)).length;
+      const dots = Array.from({ length: steps }, (_, i) => '<i' + (i < k - 1 ? ' class="on"' : '') + '></i>').join('');
+      return '<details class="grp" data-k="' + k + '"' + (openStages.has('x' + k) ? '' : ' open') + '><summary>' +
+        '<span class="gname">' + name + '<small>' + sub + '</small></span>' +
+        (k >= 2 ? '<span class="dots" aria-hidden="true">' + dots + '</span>' : '') +
+        (today ? '<span class="pill">' + today + ' bugün</span>' : '') + '<span class="gcount">' + ws.length + '</span></summary>' +
+        '<div class="list">' + ws.map(wordHTML).join('') + '</div></details>';
+    }).join('');
+  }
+  document.addEventListener('toggle', (e) => {
+    const d = e.target; if (!d.classList || !d.classList.contains('grp')) return;
+    const key = 'x' + d.dataset.k; if (d.open) openStages.delete(key); else openStages.add(key);
+  }, true);
+
   function renderAll() {
     const words = allWords();
     $('#count').textContent = words.length + ' kelime';
@@ -1443,7 +1496,7 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
     const filtered = words.filter((w) => matchesFilter(w) &&
       (!q || LANGS.some((l) => norm(w[l]).includes(q)) || norm(w.term).includes(q) || norm(w.typed).includes(q) || norm(w.note).includes(q))).sort(sorter);
     $('#listCount').textContent = words.length ? (filtered.length + ' / ' + words.length + ' kelime') : '';
-    $('#all').innerHTML = filtered.length ? filtered.map(wordHTML).join('') : emptyHTML('list');
+    $('#all').innerHTML = !filtered.length ? emptyHTML('list') : state.sort === 'stage' ? groupedHTML(filtered) : filtered.map(wordHTML).join('');
     $('#exportRow').hidden = !words.length;
 
     // the review start screen shows live counts; an active card is left alone
