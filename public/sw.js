@@ -1,5 +1,5 @@
 /* Kelime Defteri service worker: offline shell + push notifications. */
-const VERSION = 'kd-v7';
+const VERSION = 'kd-v8';
 const SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/badge-96.png'];
 
 self.addEventListener('install', (e) => {

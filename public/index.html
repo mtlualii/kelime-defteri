@@ -594,6 +594,7 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
             <div class="grow"><b>İlerlemeyi sıfırla</b><p class="hint">Bütün kelimeler yeni eklenmiş gibi olur; hepsi bugün tekrar sorulur. Kelimeler silinmez.</p></div>
             <button class="btn small danger" type="button" id="resetBtn">Sıfırla</button>
           </div>
+          <p class="hint" id="appVersion" style="text-align:right"></p>
         </section>
       </div>
     </section>
@@ -683,7 +684,7 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
     t.appendChild(document.createTextNode(msg));
     if (action) { const b = document.createElement('button'); b.type = 'button'; b.textContent = action.label; b.addEventListener('click', () => { t.classList.remove('show'); action.onClick(); }); t.appendChild(b); }
     t.classList.add('show');
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), action ? 7000 : 2200);
+    clearTimeout(toastTimer); if (!(action && action.sticky)) toastTimer = setTimeout(() => t.classList.remove('show'), action ? 7000 : 2200);
   }
 
   // ---------- speech ----------
@@ -1876,16 +1877,25 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
   }
 
   // ---------- service worker ----------
+  // Updates: look for a new version on start and every time the app comes back to the foreground
+  // (an installed iPhone app resumes instead of reloading). A new version applies itself right away
+  // unless you're typing or in the middle of a review; then a "Yenile" prompt stays until tapped.
+  const APP_VERSION = 'kd-v8';
   if ('serviceWorker' in navigator) {
+    let reloading = false;
+    const busy = () => { const a = document.activeElement; return rev.active || !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.value); };
+    const applyUpdate = () => { if (reloading) return; if (busy()) { toast('Yeni sürüm hazır', { label: 'Yenile', onClick: () => location.reload(), sticky: true }); return; } reloading = true; location.reload(); };
+    let hadController = !!navigator.serviceWorker.controller;   // first install takes control without replacing anything: no reload
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) applyUpdate(); hadController = true; });
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').then((reg) => {
-        reg.addEventListener('updatefound', () => {
-          const nw = reg.installing; if (!nw) return;
-          nw.addEventListener('statechange', () => { if (nw.state === 'installed' && navigator.serviceWorker.controller) toast('Yeni sürüm hazır', { label: 'Yenile', onClick: () => location.reload() }); });
-        });
+      navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then((reg) => {
+        const check = () => reg.update().catch(() => {});
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+        setInterval(check, 30 * 60 * 1000);
       }).catch(() => {});
     });
   }
+  { const v = $('#appVersion'); if (v) v.textContent = 'Sürüm ' + APP_VERSION.replace('kd-v', ''); }
 
   // ---------- boot ----------
   route();

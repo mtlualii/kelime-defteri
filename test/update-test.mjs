@@ -1,0 +1,20 @@
+import { createRequire } from 'node:module';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const { chromium } = createRequire(import.meta.url)('/opt/node-tools/node_modules/playwright');
+const b = await chromium.launch(); const errs = [];
+const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, locale: 'tr-TR', serviceWorkers: 'allow' });
+const p = await ctx.newPage(); p.on('pageerror', (e) => errs.push(e.message));
+await p.addInitScript(() => localStorage.setItem('kd.token', 'test-sifre'));
+await p.goto('http://127.0.0.1:8787/#liste', { waitUntil: 'networkidle' });
+await p.waitForFunction(() => navigator.serviceWorker.controller);
+console.log('version label:', await p.textContent('#appVersion'));
+await p.evaluate(() => { window.__marker = 1; });
+const sw = 'public/sw.js'; const orig = fs.readFileSync(sw, 'utf8');
+fs.writeFileSync(sw, orig.replace("const VERSION = 'kd-v8'", "const VERSION = 'kd-v9-test'"));
+await new Promise((r) => setTimeout(r, 2500));
+await p.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+await p.waitForFunction(() => !window.__marker, null, { timeout: 15000 });   // page reloaded by itself
+console.log('auto-reloaded after update');
+fs.writeFileSync(sw, orig);
+await b.close(); if (errs.length) { console.log(errs); process.exit(1); } console.log('update OK');
