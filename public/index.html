@@ -334,6 +334,9 @@ details.settings .stack { padding-top: 12px; }
 .grp[data-k="1"] .gname { color: var(--danger); }
 #all:has(.grp) { display: block; }
 
+#autoBtn.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.autob { font-size: .8em; }
+
 /* ---------- visual polish ---------- */
 body { background: radial-gradient(900px 500px at -10% -10%, var(--glow-1), transparent 60%), radial-gradient(700px 420px at 110% 0%, var(--glow-2), transparent 60%), var(--bg); background-attachment: fixed; }
 body::before { background: var(--glass); }
@@ -570,6 +573,10 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
           </div>
           <div class="notice" id="iosNotice" hidden><span>iPhone'da bildirim için: Safari'de Paylaş → Ana Ekrana Ekle, sonra uygulamayı ana ekrandan açıp şifreni girip "Bildirimleri aç"a bas.</span></div>
           <div class="btnrow tight"><button class="btn small" type="button" id="testPushBtn" hidden>Test bildirimi gönder</button></div>
+          <div class="srow">
+            <div class="grow"><b>Günün kelimesi</b><p class="hint" id="autoHint">O gün hiç kelime eklemezsen, ertesi sabah senin kelimelerinle ilgili yeni bir kelime eklenir.</p></div>
+            <button class="btn small on" type="button" id="autoBtn" aria-pressed="true">Açık</button>
+          </div>
           <div class="srow">
             <div class="grow"><b>Yedek</b><p class="hint" id="syncHint">Kelimeler bu cihazda saklanır ve sunucuya yedeklenir.</p></div>
             <button class="btn small" type="button" id="syncBtn">Şimdi yedekle</button>
@@ -1364,9 +1371,9 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
     if (POS_TR[w.pos]) meta.push(POS_TR[w.pos]);
     meta.push(!w.reps ? 'Yeni' : (w.interval || 0) >= 30 ? 'Oturdu' : 'Öğreniliyor');
     if (w.reps || w.lapses) meta.push((w.reps || 0) + ' kez bildin' + (w.lapses ? ', ' + w.lapses + ' kez takıldın' : ''));
-    if (w.createdAt) meta.push('Eklendi: ' + fmtDate(w.createdAt));
+    if (w.createdAt) meta.push((w.auto ? 'Günün kelimesi olarak eklendi: ' : 'Eklendi: ') + fmtDate(w.createdAt));
     return '<article class="word" data-lang="' + (isTarget(w.lang) ? w.lang : 'xx') + '" data-id="' + esc(w.id) + '" tabindex="0">' +
-      '<div class="top"><span class="' + chipCls(w.lang) + '">' + esc(chipTxt(w.lang)) + '</span><span class="term">' + esc(w.term) + '</span>' + spkHTML(w.term, w.lang) + dueLabel(w) + '</div>' +
+      '<div class="top"><span class="' + chipCls(w.lang) + '">' + esc(chipTxt(w.lang)) + '</span><span class="term">' + esc(w.term) + (w.auto ? ' <span class="autob" title="Günün kelimesi">✨</span>' : '') + '</span>' + spkHTML(w.term, w.lang) + dueLabel(w) + '</div>' +
       (others ? '<div class="others">' + others + '</div>' : '') +
       '<div class="more">' +
         (exs ? '<div class="stack" style="gap:6px">' + exs + '</div>' : '') +
@@ -1680,6 +1687,7 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
     try {
       const r = await api('POST', '/api/sync', { words: data.words, days: data.days, deleted: data.deleted });
       setSyncHint('Yedeklendi · ' + fmtTime(r.syncedAt) + ' · ' + r.words + ' kelime');
+      if (r.serverOnly > 0) setTimeout(pullFromServer, 0);   // the server has a word this phone hasn't seen (word of the day)
     } catch (err) {
       dirty = true; setSyncHint('Yedeklenemedi: ' + apiCopy(err.code));
     } finally {
@@ -1828,6 +1836,16 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
     btn.disabled = false;
   });
 
+  function setAutoBtn(on) { const b = $('#autoBtn'); b.textContent = on ? 'Açık' : 'Kapalı'; b.setAttribute('aria-pressed', String(on)); b.classList.toggle('on', on); }
+  $('#autoBtn').addEventListener('click', async () => {
+    if (!getToken()) { showTokenCard(); return; }
+    const b = $('#autoBtn'); const next = b.getAttribute('aria-pressed') !== 'true';
+    b.disabled = true;
+    try { const r = await api('POST', '/api/settings', { autoWord: next }); setAutoBtn(r.settings.autoWord !== false); toast(r.settings.autoWord !== false ? 'Günün kelimesi açık.' : 'Günün kelimesi kapalı.'); }
+    catch (err) { toast('Ayar kaydedilemedi: ' + apiCopy(err.code)); }
+    b.disabled = false;
+  });
+
   async function refreshSettings(me) {
     refreshTokenHint();
     const ps = await pushState();
@@ -1838,6 +1856,7 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
     else { btn.hidden = false; btn.textContent = ps === 'on' ? 'Kapat' : 'Bildirimleri aç'; hint.textContent = ps === 'on' ? 'Açık. Her sabah 08:35\'te tekrar edilecek kelimeleri hatırlatır.' : 'Her sabah 08:35\'te tekrar edilecek kelimeleri hatırlatır.'; }
     $('#testPushBtn').hidden = ps !== 'on';
     $('#pushNudge').hidden = !(ps === 'off' && getToken() && !lsGet(NUDGE_KEY)) ;
+    if (me && me.settings) setAutoBtn(me.settings.autoWord !== false);
     if (me && me.lastRemind && me.lastRemind.at) $('#lastRemind').textContent = 'Son gönderim: ' + fmtTime(me.lastRemind.at) + ' · ' + me.lastRemind.sent + ' bildirim';
   }
 

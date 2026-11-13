@@ -6,6 +6,9 @@ const port = Number(process.argv[2] || 9797);
 const seen = [];
 
 function answerFor(prompt) {
+  if (/Pick ONE new word/.test(prompt)) {
+    return { lang: 'en', langName: 'İngilizce', source: '', en: 'castigate', de: 'tadeln', tr: 'şiddetle kınamak', plural: null, pos: 'verb', note: 'Resmî bir kelime.', why: 'ta\'n ve itab gibi kınama anlatıyor', example: { en: 'He was castigated for his remarks.', de: 'Er wurde für seine Worte getadelt.', tr: 'Sözleri yüzünden şiddetle kınandı.' } };
+  }
   if (/typed its meaning from memory/.test(prompt)) {
     // answer check: anything containing "yanlis" is wrong, the rest is accepted as a synonym
     const out = {};

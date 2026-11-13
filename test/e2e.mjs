@@ -21,7 +21,7 @@ assert.equal(me.status, 200); assert.match(me.json.vapid, /^[A-Za-z0-9_-]{87}$/,
 const vapid1 = me.json.vapid;
 me = await api('GET', '/api/me'); assert.equal(me.json.vapid, vapid1, 'VAPID key is stable');
 // wipe server data so the browser run starts clean
-await api('POST', '/api/sync', { words: [], days: {}, deleted: {} });
+await api('DELETE', '/api/sync');
 const sync0 = await api('GET', '/api/sync'); assert.equal(sync0.json.data.words.length, 0);
 
 // ---- browser

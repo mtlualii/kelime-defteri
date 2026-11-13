@@ -9,6 +9,7 @@ Telefona kurulabilen (PWA) kelime defteri: bilmediğin kelimeyi hangi dilde olur
 - `public/` — uygulamanın kendisi (tek sayfa, çevrimdışı çalışır, ana ekrana eklenir). Kelimeler telefonda saklanır.
 - `src/worker.js` — Cloudflare Worker: `/api/translate` (Anthropic API, `claude-opus-5-5`), `/api/sync` (yedek),
   `/api/subscribe` (push aboneliği), günlük cron (`35 5 * * *` UTC = 08:35 İstanbul) → Web Push.
+- Günün kelimesi: bir gün hiç kelime eklenmezse ertesi sabahki cron, mevcut kelimelerle ilgili yeni bir kelime ekler (Ayarlar'dan kapatılabilir; `POST /api/settings {autoWord}`).
 - Tüm sunucu verisi tek bir Durable Object'te (SQLite, ücretsiz plan). VAPID anahtarları ilk kullanımda üretilir.
 
 ## Kurulum (bir kez)
@@ -29,7 +30,7 @@ Telefona kurulabilen (PWA) kelime defteri: bilmediğin kelimeyi hangi dilde olur
 npm install
 cp .dev.vars.example .dev.vars   # APP_TOKEN, ANTHROPIC_API_KEY
 npm run dev                      # http://127.0.0.1:8787
-node test/remind-test.mjs && node test/push-test.mjs
+node test/remind-test.mjs && node test/push-test.mjs && node test/autoword-test.mjs
 ```
 
 `public/index.html` elle düzenlenir; `port.py` yalnızca ilk taşımada kullanıldı.

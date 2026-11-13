@@ -12,6 +12,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { buildPushPayload } from '@block65/webcrypto-web-push';
 import { todayIn, dueWords, reminderText } from './remind.js';
 import { parseJSON } from './util.js';
+import { shouldAutoAdd, autoWordPrompt, autoDoc, mergeData } from './autoword.js';
 
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
 const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: JSON_HEADERS });
@@ -36,14 +37,47 @@ export class Store extends DurableObject {
   async getData() { return (await this.ctx.storage.get('data')) || null; }
 
   async putData(data) {
-    const rec = {
+    const incoming = {
       words: Array.isArray(data.words) ? data.words : [],
       days: data.days && typeof data.days === 'object' ? data.days : {},
       deleted: data.deleted && typeof data.deleted === 'object' ? data.deleted : {},
-      syncedAt: new Date().toISOString(),
     };
+    // merge instead of overwrite, so a word the server added this morning survives a sync from a phone that hasn't pulled yet
+    const rec = Object.assign(mergeData(await this.getData(), incoming), { syncedAt: new Date().toISOString() });
     await this.ctx.storage.put('data', rec);
-    return { syncedAt: rec.syncedAt, words: rec.words.length };
+    return { syncedAt: rec.syncedAt, words: rec.words.length, serverOnly: rec.words.length - incoming.words.length };
+  }
+
+  async wipe() { await this.ctx.storage.put('data', { words: [], days: {}, deleted: {}, syncedAt: new Date().toISOString() }); await this.ctx.storage.delete('lastAuto'); }
+
+  async getSettings() { return Object.assign({ autoWord: true }, (await this.ctx.storage.get('settings')) || {}); }
+  async setSettings(patch) {
+    const cur = await this.getSettings();
+    if (typeof patch.autoWord === 'boolean') cur.autoWord = patch.autoWord;
+    await this.ctx.storage.put('settings', cur);
+    return cur;
+  }
+
+  /** Word of the day: adds one related word when the owner added none yesterday. force skips the day checks. */
+  async autoWord({ force = false, now = Date.now(), tz } = {}) {
+    const data = await this.getData();
+    const settings = await this.getSettings();
+    const subs = Object.values(await this.listSubs());
+    tz = tz || (subs[0] && subs[0].tz) || 'Europe/Istanbul';
+    const decision = shouldAutoAdd({ data, settings: force ? {} : settings, lastAuto: force ? null : await this.ctx.storage.get('lastAuto'), tz, now });
+    if (!decision.add && !(force && decision.reason !== 'no_words')) return { added: false, reason: decision.reason };
+    let doc = null;
+    for (let attempt = 0; attempt < 2 && !doc; attempt++) {
+      const r = await callModel(this.env, autoWordPrompt(data.words));
+      doc = autoDoc(r, data.words, decision.today, new Date(now).toISOString());
+    }
+    if (!doc) return { added: false, reason: 'no_usable_word' };
+    const fresh = await this.getData();   // re-read: a sync may have landed while the model was thinking
+    fresh.words = [doc, ...(fresh.words || [])];
+    fresh.syncedAt = new Date().toISOString();
+    await this.ctx.storage.put('data', fresh);
+    await this.ctx.storage.put('lastAuto', decision.today);
+    return { added: true, word: doc };
   }
 
   /** VAPID key pair, generated once. publicKey = base64url raw P-256 point, privateKey = JWK `d`. */
@@ -92,11 +126,16 @@ export class Store extends DurableObject {
    * Sends the reminder to every subscription whose local date has due words.
    * dry: compute only. force: send even with nothing due (test notification).
    */
-  async remind({ dry = false, force = false, now = Date.now() } = {}) {
+  async remind({ dry = false, force = false, auto = false, now = Date.now() } = {}) {
+    let autoRes = null;
+    if (auto && !dry) {
+      try { autoRes = await this.autoWord({ now }); } catch (e) { autoRes = { added: false, reason: 'error', error: String((e && e.message) || e) }; }
+    }
+    const daily = autoRes && autoRes.added ? autoRes.word : null;
     const data = await this.getData();
     const subs = await this.listSubs();
     const words = data ? data.words : [];
-    const out = { at: new Date(now).toISOString(), subs: Object.keys(subs).length, sent: 0, skipped: 0, removed: 0, results: [] };
+    const out = { at: new Date(now).toISOString(), subs: Object.keys(subs).length, sent: 0, skipped: 0, removed: 0, results: [], auto: autoRes ? { added: autoRes.added, reason: autoRes.reason, term: daily ? daily.term : undefined } : undefined };
     for (const [endpoint, entry] of Object.entries(subs)) {
       const today = todayIn(entry.tz, new Date(now));
       const due = dueWords(words, today);
@@ -104,18 +143,18 @@ export class Store extends DurableObject {
       if (!due.length && !force) { out.skipped++; out.results.push({ endpoint: short, today, due: 0, status: 'nothing_due' }); continue; }
       const message = {
         title: 'Kelime Defteri',
-        body: due.length ? reminderText(due) : 'Test bildirimi: bildirimler çalışıyor 🎉',
+        body: (due.length ? reminderText(due) : 'Test bildirimi: bildirimler çalışıyor 🎉') + (daily ? '\n✨ Günün kelimesi: ' + daily.term + ' = ' + daily.tr : ''),
         url: '/#tekrar',
         tag: 'kd-' + today,
       };
       if (dry) { out.results.push({ endpoint: short, today, due: due.length, status: 'dry', body: message.body }); continue; }
       try {
         const status = await this.sendTo(entry, message);
-        out.results.push({ endpoint: short, today, due: due.length, status });
+        out.results.push({ endpoint: short, today, due: due.length, status, body: message.body });
         if (status === 404 || status === 410) { await this.removeSub(endpoint); out.removed++; }
         else if (status >= 200 && status < 300) out.sent++;
       } catch (e) {
-        out.results.push({ endpoint: short, today, due: due.length, status: 'error', error: String((e && e.message) || e) });
+        out.results.push({ endpoint: short, today, due: due.length, status: 'error', body: message.body, error: String((e && e.message) || e) });
       }
     }
     if (!dry) await this.ctx.storage.put('lastRemind', out);
@@ -136,6 +175,24 @@ async function readBody(req) {
   try { return await req.json(); } catch (e) { return null; }
 }
 
+/** One model call that must answer with JSON; throws the SDK's errors. Used by the morning word of the day. */
+async function callModel(env, prompt) {
+  if (!env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY missing');
+  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, baseURL: env.ANTHROPIC_BASE_URL || undefined, maxRetries: 1, timeout: 90_000 });
+  const res = await client.beta.messages.create({
+    model: env.MODEL || 'claude-opus-5-5',
+    max_tokens: Number(env.MAX_TOKENS) || 4096,
+    betas: ['server-side-fallback-2026-07-01'],
+    fallbacks: 'default',
+    output_config: { effort: env.EFFORT || 'low' },
+    system: SYSTEM,
+    messages: [{ role: 'user', content: prompt }],
+  });
+  if (res.stop_reason === 'refusal') return undefined;
+  return parseJSON((res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n'));
+}
+const SYSTEM = 'You are the translation engine behind a personal vocabulary app (English, German, Turkish; the input may be in any language). Reply with exactly the JSON the user asks for: no prose, no markdown, no code fences.';
+
 async function translate(req, env) {
   if (!env.ANTHROPIC_API_KEY) return fail(503, 'no_api_key', 'ANTHROPIC_API_KEY Cloudflare\'de ayarlanmamış.');
   const body = await readBody(req);
@@ -152,7 +209,7 @@ async function translate(req, env) {
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       output_config: { effort: env.EFFORT || 'low' },
-      system: 'You are the translation engine behind a personal vocabulary app (English, German, Turkish; the input may be in any language). Reply with exactly the JSON the user asks for: no prose, no markdown, no code fences.',
+      system: SYSTEM,
       messages: [{ role: 'user', content: prompt }],
     });
   } catch (e) {
@@ -185,8 +242,8 @@ async function api(req, env, url) {
 
   const s = store(env);
   if (path === '/api/me' && method === 'GET') {
-    const [vapid, subs, data, last] = await Promise.all([s.getVapid(), s.listSubs(), s.getData(), s.lastRemind()]);
-    return json({ ok: true, vapid: vapid.publicKey, subs: Object.keys(subs).length, anthropic: !!env.ANTHROPIC_API_KEY, model: env.MODEL || 'claude-opus-5-5', syncedAt: data ? data.syncedAt : null, words: data ? data.words.length : 0, lastRemind: last });
+    const [vapid, subs, data, last, settings] = await Promise.all([s.getVapid(), s.listSubs(), s.getData(), s.lastRemind(), s.getSettings()]);
+    return json({ ok: true, settings, vapid: vapid.publicKey, subs: Object.keys(subs).length, anthropic: !!env.ANTHROPIC_API_KEY, model: env.MODEL || 'claude-opus-5-5', syncedAt: data ? data.syncedAt : null, words: data ? data.words.length : 0, lastRemind: last });
   }
   if (path === '/api/translate' && method === 'POST') return translate(req, env);
   if (path === '/api/sync' && method === 'GET') return json({ data: await s.getData() });
@@ -195,6 +252,16 @@ async function api(req, env, url) {
     if (!body || !Array.isArray(body.words)) return fail(400, 'bad_request', 'words gerekli');
     if (JSON.stringify(body).length > 4_000_000) return fail(413, 'too_large', 'Veri çok büyük');
     return json(await s.putData(body));
+  }
+  if (path === '/api/sync' && method === 'DELETE') { await s.wipe(); return json({ ok: true }); }
+  if (path === '/api/settings' && method === 'POST') {
+    const body = await readBody(req);
+    if (!body || typeof body !== 'object') return fail(400, 'bad_request', 'ayar gerekli');
+    return json({ ok: true, settings: await s.setSettings(body) });
+  }
+  if (path === '/api/auto-word' && method === 'POST') {
+    try { return json(await s.autoWord({ force: url.searchParams.get('force') === '1' })); }
+    catch (e) { console.error('auto-word error', e && e.message); return fail(502, 'upstream', 'Günün kelimesi üretilemedi.'); }
   }
   if (path === '/api/subscribe' && method === 'POST') {
     const body = await readBody(req);
@@ -227,6 +294,6 @@ export default {
     }
   },
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(store(env).remind({}).then((r) => console.log('remind', JSON.stringify(r))));
+    ctx.waitUntil(store(env).remind({ auto: true }).then((r) => console.log('remind', JSON.stringify(r))));
   },
 };
