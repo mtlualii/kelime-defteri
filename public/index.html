@@ -337,6 +337,11 @@ details.settings .stack { padding-top: 12px; }
 #autoBtn.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
 .autob { font-size: .8em; }
 
+/* text fields that grow with their content (long meanings and notes stay readable) */
+textarea.fit { resize: none; overflow: hidden; min-height: 0; field-sizing: content; overflow-wrap: anywhere; }
+textarea.fit.one { line-height: 1.35; }
+.bitem .trow textarea.fit { padding: 8px 10px; font-size: 15px; }
+
 /* ---------- visual polish ---------- */
 body { background: radial-gradient(900px 500px at -10% -10%, var(--glow-1), transparent 60%), radial-gradient(700px 420px at 110% 0%, var(--glow-2), transparent 60%), var(--bg); background-attachment: fixed; }
 body::before { background: var(--glass); }
@@ -488,23 +493,23 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
           <div class="notice" id="rFix" hidden style="margin-bottom:12px"></div>
           <div class="alts" id="rAlts" hidden style="margin-bottom:12px"></div>
           <div class="stack">
-            <div class="trow" id="rSrcRow" hidden><span class="chip xx" id="rSrcChip">??</span><input type="text" id="rSrc" placeholder="Kaynak dildeki hali"></div>
-            <div class="trow"><span class="chip en">EN</span><input type="text" id="rEn" placeholder="İngilizce"></div>
-            <div class="trow"><span class="chip de">DE</span><input type="text" id="rDe" placeholder="Almanca (isimse artikeliyle)"></div>
-            <div class="trow" id="rPluralRow" hidden><span class="chip de" style="opacity:.55">PL</span><input type="text" id="rPlural" placeholder="Çoğul, örn. die Tische"></div>
-            <div class="trow"><span class="chip tr">TR</span><input type="text" id="rTr" placeholder="Türkçe"></div>
+            <div class="trow" id="rSrcRow" hidden><span class="chip xx" id="rSrcChip">??</span><textarea class="fit one" rows="1" id="rSrc" placeholder="Kaynak dildeki hali"></textarea></div>
+            <div class="trow"><span class="chip en">EN</span><textarea class="fit one" rows="1" id="rEn" placeholder="İngilizce"></textarea></div>
+            <div class="trow"><span class="chip de">DE</span><textarea class="fit one" rows="1" id="rDe" placeholder="Almanca (isimse artikeliyle)"></textarea></div>
+            <div class="trow" id="rPluralRow" hidden><span class="chip de" style="opacity:.55">PL</span><textarea class="fit one" rows="1" id="rPlural" placeholder="Çoğul, örn. die Tische"></textarea></div>
+            <div class="trow"><span class="chip tr">TR</span><textarea class="fit one" rows="1" id="rTr" placeholder="Türkçe"></textarea></div>
 
             <div>
               <label class="lbl">Örnek cümle</label>
               <div class="stack" style="gap:8px">
-                <div class="ex"><span class="chip en">EN</span><textarea id="rExEn" rows="2" placeholder="İngilizce örnek"></textarea></div>
-                <div class="ex"><span class="chip de">DE</span><textarea id="rExDe" rows="2" placeholder="Almanca örnek"></textarea></div>
-                <div class="ex"><span class="chip tr">TR</span><textarea id="rExTr" rows="2" placeholder="Türkçe örnek"></textarea></div>
+                <div class="ex"><span class="chip en">EN</span><textarea class="fit" id="rExEn" rows="2" placeholder="İngilizce örnek"></textarea></div>
+                <div class="ex"><span class="chip de">DE</span><textarea class="fit" id="rExDe" rows="2" placeholder="Almanca örnek"></textarea></div>
+                <div class="ex"><span class="chip tr">TR</span><textarea class="fit" id="rExTr" rows="2" placeholder="Türkçe örnek"></textarea></div>
               </div>
             </div>
             <div>
               <label class="lbl" for="rNote">Not</label>
-              <input type="text" id="rNote" placeholder="Kullanım notu (isteğe bağlı)">
+              <textarea class="fit" rows="1" id="rNote" placeholder="Kullanım notu (isteğe bağlı)"></textarea>
             </div>
             <div class="btnrow">
               <button class="btn ghost" type="button" id="cancelBtn">Vazgeç</button>
@@ -645,6 +650,15 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
     if (s.v === 2 && ['stage', 'new', 'az', 'due', 'hard'].includes(s.sort)) state.sort = s.sort;   // older saves get the grouped view
   } catch (e) {}
   function saveSettings() { try { localStorage.setItem('kd.settings', JSON.stringify({ mode: rev.mode, quiz: rev.quiz, limit: rev.limit, sort: state.sort, v: 2 })); } catch (e) {} }
+
+  // ---------- growing text fields ----------
+  function fit(t) { if (!t || !t.isConnected || !t.offsetParent) return; t.style.height = 'auto'; t.style.height = (t.scrollHeight + 2) + 'px'; }
+  function fitAll(root) { (root || document).querySelectorAll('textarea.fit').forEach(fit); }
+  document.addEventListener('input', (e) => { if (e.target.matches && e.target.matches('textarea.fit')) fit(e.target); });
+  // one-line fields: Enter doesn't add a line break
+  document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches && e.target.matches('textarea.fit.one')) { e.preventDefault(); e.target.blur(); } });
+  new MutationObserver(() => requestAnimationFrame(() => fitAll())).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'class'] });
+  window.addEventListener('resize', () => fitAll());
 
   // ---------- helpers ----------
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -905,6 +919,7 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
     $('#rSrc').value = d.source || d.typed;
 
     $('#rEn').value = d.en; $('#rDe').value = d.de; $('#rTr').value = d.tr;
+    requestAnimationFrame(() => fitAll($('#result')));
     $('#rPlural').value = d.plural;
     $('#rPluralRow').hidden = !(d.pos === 'noun' || d.plural || (d.lang === 'de' && d.pos === 'other'));
     $('#rExEn').value = d.example.en; $('#rExDe').value = d.example.de; $('#rExTr').value = d.example.tr;
@@ -1394,10 +1409,10 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
     if (!isTarget(w.lang)) rows.push(['src', chipCls(w.lang), chipTxt(w.lang), w.term, 'Kaynak dildeki hali']);
     rows.push(['en', 'chip en', 'EN', w.en, 'İngilizce'], ['de', 'chip de', 'DE', w.de, 'Almanca'], ['pl', 'chip de', 'PL', w.plural, 'Çoğul (Almanca isim)'], ['tr', 'chip tr', 'TR', w.tr, 'Türkçe']);
     return '<div class="stack edit">' +
-      rows.map(([k, cls, c, v, ph]) => '<div class="trow"><span class="' + cls + '"' + (k === 'pl' ? ' style="opacity:.55"' : '') + '>' + esc(c) + '</span><input type="text" data-k="' + k + '" value="' + esc(v || '') + '" placeholder="' + esc(ph) + '"></div>').join('') +
+      rows.map(([k, cls, c, v, ph]) => '<div class="trow"><span class="' + cls + '"' + (k === 'pl' ? ' style="opacity:.55"' : '') + '>' + esc(c) + '</span><textarea class="fit one" rows="1" data-k="' + k + '" placeholder="' + esc(ph) + '">' + esc(v || '') + '</textarea></div>').join('') +
       '<div class="row" style="justify-content:space-between;margin:4px 0 -4px"><label class="lbl" style="margin:0">Örnek cümle</label>' + (state.sample && !state.sampleOff ? '<button class="linkish egen" type="button">Örnek üret</button>' : '') + '</div>' +
-      LANGS.map((l) => '<div class="ex"><span class="chip ' + l + '">' + l.toUpperCase() + '</span><textarea data-k="ex-' + l + '" rows="2">' + esc(w.example && w.example[l] || '') + '</textarea></div>').join('') +
-      '<input type="text" data-k="note" value="' + esc(w.note || '') + '" placeholder="Not (isteğe bağlı)">' +
+      LANGS.map((l) => '<div class="ex"><span class="chip ' + l + '">' + l.toUpperCase() + '</span><textarea class="fit" data-k="ex-' + l + '" rows="2">' + esc(w.example && w.example[l] || '') + '</textarea></div>').join('') +
+      '<textarea class="fit" rows="1" data-k="note" placeholder="Not (isteğe bağlı)">' + esc(w.note || '') + '</textarea>' +
       '<div class="btnrow"><button class="btn small ghost ecancel" type="button">Vazgeç</button><button class="btn small primary esave" type="button">Kaydet</button></div>' +
     '</div>';
   }
@@ -1422,7 +1437,7 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
     const btn = card.querySelector('.egen'); if (btn) { btn.disabled = true; btn.textContent = 'Üretiliyor…'; }
     try {
       const r = await state.sample.json(examplePrompt({ en: get('en') || w.en, de: get('de') || w.de, tr: get('tr') || w.tr, source: w.source }), { modelTier: 'quick', cache: false });
-      LANGS.forEach((l) => { const el = card.querySelector('[data-k="ex-' + l + '"]'); if (el && r && str(r[l])) el.value = str(r[l]); });
+      LANGS.forEach((l) => { const el = card.querySelector('[data-k="ex-' + l + '"]'); if (el && r && str(r[l])) { el.value = str(r[l]); fit(el); } });
     } catch (err) { toast(sampleCopy(err && err.code) || 'Üretilemedi.'); }
     if (btn) { btn.disabled = false; btn.textContent = 'Örnek üret'; }
   }

@@ -1,0 +1,16 @@
+import { createRequire } from 'node:module';
+import assert from 'node:assert/strict';
+const { chromium } = createRequire(import.meta.url)('/opt/node-tools/node_modules/playwright');
+const b = await chromium.launch(); const errs = [];
+const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: 'tr-TR' });
+const p = await ctx.newPage(); p.on('pageerror', (e) => errs.push(e.message));
+await p.addInitScript(() => localStorage.setItem('kd.token', 'test-sifre'));
+await p.goto('http://127.0.0.1:8787/', { waitUntil: 'networkidle' });
+await p.fill('#term', 'Gelassenheit'); await p.click('#translateBtn'); await p.waitForSelector('#result:not([hidden])');
+const long = 'Bu kelime özellikle zor durumlarda sakin kalabilmeyi anlatır; günlük konuşmada da, edebî metinlerde de sık geçer, Stoacı felsefeyle de ilişkilidir.';
+await p.fill('#rNote', long);
+const h1 = await p.$eval('#rNote', (t) => [t.clientHeight, t.scrollHeight]); console.log('note client/scroll', h1);
+assert.ok(h1[0] >= h1[1] - 2, 'note shows all its text');
+await p.locator('#rNote').scrollIntoViewIfNeeded(); await p.screenshot({ path: 'test/out/note-long.png' });
+await p.press('#rEn', 'Enter'); assert.equal(await p.inputValue('#rEn'), 'serenity', 'Enter adds no newline in one-line fields');
+await b.close(); if (errs.length) { console.log(errs); process.exit(1); } console.log('note OK');
