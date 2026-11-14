@@ -1,0 +1,11 @@
+import { createRequire } from 'node:module';
+const { chromium } = createRequire(import.meta.url)('/opt/node-tools/node_modules/playwright');
+const b = await chromium.launch();
+const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: 'tr-TR' });
+const p = await ctx.newPage();
+await p.addInitScript(() => localStorage.setItem('kd.token', 'test-sifre'));
+await p.goto('http://127.0.0.1:8787/#liste', { waitUntil: 'networkidle' }); await p.waitForTimeout(500);
+await p.screenshot({ path: 'test/out/hdr-liste.png' });
+await p.click('#gearBtn'); await p.waitForTimeout(500);
+await p.screenshot({ path: 'test/out/ayarlar.png' });
+await b.close();

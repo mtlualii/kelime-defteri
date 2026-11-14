@@ -1,0 +1,12 @@
+import { createRequire } from 'node:module';
+import assert from 'node:assert/strict';
+const { chromium } = createRequire(import.meta.url)('/opt/node-tools/node_modules/playwright');
+const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, locale: 'tr-TR' });
+const p = await ctx.newPage(); await p.addInitScript(() => localStorage.setItem('kd.token', 'test-sifre'));
+await p.goto('http://127.0.0.1:8787/', { waitUntil: 'networkidle' });
+assert.equal(await p.isVisible('#recent .word'), true);
+await p.click('#recentFold > summary'); assert.equal(await p.isVisible('#recent .word'), false, 'closes');
+await p.screenshot({ path: 'test/out/fold-closed.png' });
+await p.reload({ waitUntil: 'networkidle' }); assert.equal(await p.isVisible('#recent .word'), false, 'stays closed after reopen');
+await p.click('#recentFold > summary'); assert.equal(await p.isVisible('#recent .word'), true, 'opens');
+await b.close(); console.log('fold OK');

@@ -11,10 +11,10 @@ await p.waitForFunction(() => navigator.serviceWorker.controller);
 console.log('version label:', await p.textContent('#appVersion'));
 await p.evaluate(() => { window.__marker = 1; });
 const sw = 'public/sw.js'; const orig = fs.readFileSync(sw, 'utf8');
-fs.writeFileSync(sw, orig.replace("const VERSION = 'kd-v8'", "const VERSION = 'kd-v9-test'"));
+fs.writeFileSync(sw, orig.replace(/const VERSION = '[^']+'/, "const VERSION = 'kd-update-test'"));
 await new Promise((r) => setTimeout(r, 2500));
 await p.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-await p.waitForFunction(() => !window.__marker, null, { timeout: 15000 });   // page reloaded by itself
+try { await p.waitForFunction(() => !window.__marker, null, { timeout: 15000 }); } finally { fs.writeFileSync(sw, orig); }   // page reloaded by itself
 console.log('auto-reloaded after update');
 fs.writeFileSync(sw, orig);
 await b.close(); if (errs.length) { console.log(errs); process.exit(1); } console.log('update OK');

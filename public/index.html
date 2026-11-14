@@ -342,6 +342,22 @@ textarea.fit { resize: none; overflow: hidden; min-height: 0; field-sizing: cont
 textarea.fit.one { line-height: 1.35; }
 .bitem .trow textarea.fit { padding: 8px 10px; font-size: 15px; }
 
+/* collapsible "Son eklenenler" */
+.fold { display: grid; gap: 10px; }
+.fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::after { content: "▸"; color: var(--muted); font-size: 12px; transition: transform .15s; }
+.fold[open] > summary::after { transform: rotate(90deg); }
+.fold .section-title { margin: 0; }
+
+/* header gear + settings screen */
+.hright { display: flex; align-items: center; gap: 10px; }
+.gear { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: var(--muted); border: 1px solid color-mix(in srgb, var(--line) 80%, transparent); background: var(--card); flex: 0 0 auto; }
+.gear svg { width: 21px; height: 21px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.gear.on, .gear:active { color: var(--accent-fg); background: linear-gradient(135deg, var(--accent-2), var(--accent)); border-color: transparent; }
+.sethead { gap: 8px; }
+.sethead .btn { padding-left: 8px; }
+
 /* ---------- visual polish ---------- */
 body { background: radial-gradient(900px 500px at -10% -10%, var(--glow-1), transparent 60%), radial-gradient(700px 420px at 110% 0%, var(--glow-2), transparent 60%), var(--bg); background-attachment: fixed; }
 body::before { background: var(--glass); }
@@ -431,7 +447,8 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
 <header class="hdr">
   <div class="wrap">
     <h1 class="brand"><img class="logo" src="/icons/icon-192.png" alt=""><span class="bt">Kelime Defteri<small>EN · DE · TR</small></span></h1>
-    <div class="count"><span id="count">0 kelime</span><span id="streak" class="streak" hidden></span></div>
+    <div class="hright"><div class="count"><span id="count">0 kelime</span><span id="streak" class="streak" hidden></span></div>
+      <a class="gear" href="#ayarlar" id="gearBtn" aria-label="Ayarlar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></a></div>
   </div>
 </header>
 
@@ -530,8 +547,10 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
           </div>
         </section>
 
-        <h2 class="section-title">Son eklenenler</h2>
-        <div class="list" id="recent"></div>
+        <details class="fold" id="recentFold" open>
+          <summary><h2 class="section-title">Son eklenenler</h2></summary>
+          <div class="list" id="recent"></div>
+        </details>
       </div>
     </section>
 
@@ -569,10 +588,15 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
           <button class="btn small" type="button" id="ankiBtn">Anki için kopyala</button>
         </div>
         <textarea id="exportBox" rows="6" hidden readonly></textarea>
+      </div>
+    </section>
 
+    <!-- SETTINGS VIEW (opened from the gear at the top right) -->
+    <section class="view" id="view-ayarlar" hidden>
+      <div class="stack">
+        <div class="row sethead"><button class="btn small ghost" type="button" id="setBack" aria-label="Geri">‹ Geri</button><h2 class="title grow">Ayarlar</h2></div>
         <section class="card stack prefs" id="settings">
-          <h2 class="title" style="font-size:20px">Ayarlar</h2>
-          <div class="srow">
+                    <div class="srow">
             <div class="grow"><b>Sabah bildirimi</b><p class="hint" id="pushHint">Her sabah 08:35'te tekrar edilecek kelimeleri hatırlatır.</p><p class="hint" id="lastRemind"></p></div>
             <button class="btn small" type="button" id="pushBtn">Bildirimleri aç</button>
           </div>
@@ -741,8 +765,12 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
   }
 
   // ---------- routing ----------
+  let lastView = 'ekle';
   function route() {
-    const v = location.hash === '#liste' ? 'liste' : location.hash === '#tekrar' ? 'tekrar' : 'ekle';
+    const v = location.hash === '#liste' ? 'liste' : location.hash === '#tekrar' ? 'tekrar' : location.hash === '#ayarlar' ? 'ayarlar' : 'ekle';
+    if (v !== 'ayarlar') lastView = v;
+    $('#view-ayarlar').hidden = v !== 'ayarlar';
+    $('#gearBtn').classList.toggle('on', v === 'ayarlar');
     $('#view-ekle').hidden = v !== 'ekle';
     $('#view-tekrar').hidden = v !== 'tekrar';
     $('#view-liste').hidden = v !== 'liste';
@@ -1797,6 +1825,10 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
     } finally { btn.disabled = false; }
   });
   $('#tokenBtn').addEventListener('click', () => showTokenCard(''));
+  // "Son eklenenler" open/closed is remembered on this phone
+  try { if (localStorage.getItem('kd.recentClosed') === '1') $('#recentFold').open = false; } catch (e) {}
+  $('#recentFold').addEventListener('toggle', () => { try { localStorage.setItem('kd.recentClosed', $('#recentFold').open ? '0' : '1'); } catch (e) {} });
+  $('#setBack').addEventListener('click', () => { location.hash = '#' + lastView; });
   $('#resetBtn').addEventListener('click', () => {
     if (!data.words.length) { toast('Kelime yok.'); return; }
     if (!window.confirm('Bütün kelimelerin tekrar geçmişi silinsin ve hepsi yeni gibi bugün sorulsun mu?')) return;
@@ -1880,7 +1912,7 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
   // Updates: look for a new version on start and every time the app comes back to the foreground
   // (an installed iPhone app resumes instead of reloading). A new version applies itself right away
   // unless you're typing or in the middle of a review; then a "Yenile" prompt stays until tapped.
-  const APP_VERSION = 'kd-v8';
+  const APP_VERSION = 'kd-v10';
   if ('serviceWorker' in navigator) {
     let reloading = false;
     const busy = () => { const a = document.activeElement; return rev.active || !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.value); };

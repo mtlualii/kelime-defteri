@@ -93,13 +93,15 @@ assert.equal(await page.locator('#all .word').count(), before - 1);
 // settings card + service worker
 const swState = await page.evaluate(async () => { const r = await navigator.serviceWorker.getRegistration(); return r && (r.active || r.waiting || r.installing) ? 'registered' : 'none'; });
 assert.equal(swState, 'registered', 'service worker registered');
-await page.locator('#settings').scrollIntoViewIfNeeded();
+await page.click('#gearBtn'); await page.waitForSelector('#settings', { state: 'visible' });
+assert.equal(await page.isVisible('#view-liste'), false, 'settings is its own screen');
 console.log('push hint:', await page.textContent('#pushHint'), '| button visible:', await page.isVisible('#pushBtn'));
 if (await page.isVisible('#pushBtn')) {   // headless Chromium has no push service: the app must fail softly
   await page.click('#pushBtn'); await page.waitForTimeout(3000);
   console.log('after enable click → toast:', (await page.textContent('#toast')).trim(), '| hint:', await page.textContent('#pushHint'));
 }
 await page.screenshot({ path: out + '/e2e-04-settings.png' });
+await page.click('#setBack'); await page.waitForSelector('#view-liste', { state: 'visible' });
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 assert.equal(overflow, 0, 'no horizontal overflow at 400px');
 
