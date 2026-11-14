@@ -350,6 +350,8 @@ textarea.fit.one { line-height: 1.35; }
 .fold[open] > summary::after { transform: rotate(90deg); }
 .fold .section-title { margin: 0; }
 
+#remindAt { width: auto; flex: 0 0 auto; color: var(--fg); background: var(--card-2); border: 1px solid var(--line); border-radius: 12px; font-family: var(--font-display); font-size: 18px; font-weight: 600; padding: 8px 12px; }
+
 /* header gear + settings screen */
 .hright { display: flex; align-items: center; gap: 10px; }
 .gear { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: var(--muted); border: 1px solid color-mix(in srgb, var(--line) 80%, transparent); background: var(--card); flex: 0 0 auto; }
@@ -597,13 +599,17 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
         <div class="row sethead"><button class="btn small ghost" type="button" id="setBack" aria-label="Geri">‹ Geri</button><h2 class="title grow">Ayarlar</h2></div>
         <section class="card stack prefs" id="settings">
                     <div class="srow">
-            <div class="grow"><b>Sabah bildirimi</b><p class="hint" id="pushHint">Her sabah 08:35'te tekrar edilecek kelimeleri hatırlatır.</p><p class="hint" id="lastRemind"></p></div>
+            <div class="grow"><b>Sabah bildirimi</b><p class="hint" id="pushHint">Her sabah seçtiğin saatte tekrar edilecek kelimeleri hatırlatır.</p><p class="hint" id="lastRemind"></p></div>
             <button class="btn small" type="button" id="pushBtn">Bildirimleri aç</button>
+          </div>
+          <div class="srow">
+            <div class="grow"><b>Bildirim saati</b><p class="hint">Günün kelimesi de bu saatte eklenir.</p></div>
+            <input type="time" id="remindAt" value="08:35" step="300" aria-label="Bildirim saati">
           </div>
           <div class="notice" id="iosNotice" hidden><span>iPhone'da bildirim için: Safari'de Paylaş → Ana Ekrana Ekle, sonra uygulamayı ana ekrandan açıp şifreni girip "Bildirimleri aç"a bas.</span></div>
           <div class="btnrow tight"><button class="btn small" type="button" id="testPushBtn" hidden>Test bildirimi gönder</button></div>
           <div class="srow">
-            <div class="grow"><b>Günün kelimesi</b><p class="hint" id="autoHint">O gün hiç kelime eklemezsen, ertesi sabah senin kelimelerinle ilgili yeni bir kelime eklenir.</p></div>
+            <div class="grow"><b>Günün kelimesi</b><p class="hint" id="autoHint">O gün hiç kelime eklemezsen, ertesi gün bildirim saatinde senin kelimelerinle ilgili yeni bir kelime eklenir.</p></div>
             <button class="btn small on" type="button" id="autoBtn" aria-pressed="true">Açık</button>
           </div>
           <div class="srow">
@@ -1862,7 +1868,7 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
       if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(me.vapid) });
       await api('POST', '/api/subscribe', { subscription: sub.toJSON(), tz: (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Europe/Istanbul' });
       lsSet(NUDGE_KEY, '1');
-      toast('Bildirimler açık: her sabah 08:35.');
+      toast('Bildirimler açık: her gün ' + remindAt + '.');
     } catch (err) { toast('Bildirim açılamadı: ' + apiCopy(err.code)); }
     refreshSettings();
   }
@@ -1884,6 +1890,13 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
     btn.disabled = false;
   });
 
+  let remindAt = '08:35';
+  $('#remindAt').addEventListener('change', async (e) => {
+    const v = e.target.value; if (!/^\d{2}:\d{2}$/.test(v)) return;
+    if (!getToken()) { showTokenCard(); return; }
+    try { const r = await api('POST', '/api/settings', { remindAt: v }); remindAt = r.settings.remindAt; e.target.value = remindAt; toast('Bildirim saati: ' + remindAt); refreshSettings({ settings: r.settings }); }
+    catch (err) { toast('Saat kaydedilemedi: ' + apiCopy(err.code)); e.target.value = remindAt; }
+  });
   function setAutoBtn(on) { const b = $('#autoBtn'); b.textContent = on ? 'Açık' : 'Kapalı'; b.setAttribute('aria-pressed', String(on)); b.classList.toggle('on', on); }
   $('#autoBtn').addEventListener('click', async () => {
     if (!getToken()) { showTokenCard(); return; }
@@ -1901,10 +1914,10 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
     $('#iosNotice').hidden = !(isIOS && !standalone);
     if (ps === 'unsupported') { btn.hidden = true; hint.textContent = isIOS && !standalone ? 'iPhone\'da bildirim için uygulamayı ana ekrana eklemen gerekir.' : 'Bu tarayıcı bildirim desteklemiyor.'; }
     else if (ps === 'denied') { btn.hidden = true; hint.textContent = 'Bildirim izni reddedilmiş; tarayıcı/uygulama ayarlarından aç.'; }
-    else { btn.hidden = false; btn.textContent = ps === 'on' ? 'Kapat' : 'Bildirimleri aç'; hint.textContent = ps === 'on' ? 'Açık. Her sabah 08:35\'te tekrar edilecek kelimeleri hatırlatır.' : 'Her sabah 08:35\'te tekrar edilecek kelimeleri hatırlatır.'; }
+    else { btn.hidden = false; btn.textContent = ps === 'on' ? 'Kapat' : 'Bildirimleri aç'; hint.textContent = (ps === 'on' ? 'Açık. ' : '') + 'Her gün ' + remindAt + ' saatinde tekrar edilecek kelimeleri hatırlatır.'; }
     $('#testPushBtn').hidden = ps !== 'on';
     $('#pushNudge').hidden = !(ps === 'off' && getToken() && !lsGet(NUDGE_KEY)) ;
-    if (me && me.settings) setAutoBtn(me.settings.autoWord !== false);
+    if (me && me.settings) { setAutoBtn(me.settings.autoWord !== false); if (me.settings.remindAt) { remindAt = me.settings.remindAt; $('#remindAt').value = remindAt; if (ps !== 'unsupported' && ps !== 'denied') hint.textContent = (ps === 'on' ? 'Açık. ' : '') + 'Her gün ' + remindAt + ' saatinde tekrar edilecek kelimeleri hatırlatır.'; } }
     if (me && me.lastRemind && me.lastRemind.at) $('#lastRemind').textContent = 'Son gönderim: ' + fmtTime(me.lastRemind.at) + ' · ' + me.lastRemind.sent + ' bildirim';
   }
 
@@ -1912,7 +1925,7 @@ main .wrap { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
   // Updates: look for a new version on start and every time the app comes back to the foreground
   // (an installed iPhone app resumes instead of reloading). A new version applies itself right away
   // unless you're typing or in the middle of a review; then a "Yenile" prompt stays until tapped.
-  const APP_VERSION = 'kd-v10';
+  const APP_VERSION = 'kd-v11';
   if ('serviceWorker' in navigator) {
     let reloading = false;
     const busy = () => { const a = document.activeElement; return rev.active || !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.value); };

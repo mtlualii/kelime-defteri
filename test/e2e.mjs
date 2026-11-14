@@ -128,7 +128,8 @@ const fake = { endpoint: 'https://127.0.0.1:1/push/fake', expirationTime: null, 
 let r = await api('POST', '/api/subscribe', { subscription: fake, tz: 'Europe/Istanbul' }); assert.equal(r.json.subs, 1);
 r = await api('GET', '/api/remind'); assert.equal(r.json.subs, 1); assert.ok(r.json.results[0].due >= 1, 'seeded words are due'); assert.match(r.json.results[0].body, /^Günaydın! Bugün tekrar edilecek \d+ kelimen var: /);
 console.log('dry reminder:', r.json.results[0].body);
-const sched = await fetch(BASE + '/__scheduled?cron=35+5+*+*+*'); assert.equal(sched.status, 200);
+const sched = await fetch(BASE + '/__scheduled?cron=*/5+*+*+*+*'); assert.equal(sched.status, 200);
+await api('POST', '/api/tick?reset=1&at=' + encodeURIComponent(new Date().toISOString().slice(0, 10) + 'T18:00:00Z'));
 await new Promise((res) => setTimeout(res, 1500));
 me = await api('GET', '/api/me');
 assert.ok(me.json.lastRemind && me.json.lastRemind.results[0].status === 'error', 'scheduled run attempted delivery to the unreachable fake endpoint');

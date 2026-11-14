@@ -2,13 +2,13 @@
 
 Telefona kurulabilen (PWA) kelime defteri: bilmediğin kelimeyi hangi dilde olursa olsun yaz,
 İngilizce · Almanca · Türkçe karşılığı ve örnek cümlesiyle kaydedilir; aralıklı tekrarla
-(1-3-7-14-30-60-120 gün) sorulur; her sabah 08:35'te telefona bildirim gelir.
+(1-3-7-14-30-60-120 gün) sorulur; her gün seçtiğin saatte (varsayılan 08:35) telefona bildirim gelir.
 
 ## Nasıl çalışır
 
 - `public/` — uygulamanın kendisi (tek sayfa, çevrimdışı çalışır, ana ekrana eklenir). Kelimeler telefonda saklanır.
 - `src/worker.js` — Cloudflare Worker: `/api/translate` (Anthropic API, `claude-opus-5-5`), `/api/sync` (yedek),
-  `/api/subscribe` (push aboneliği), günlük cron (`35 5 * * *` UTC = 08:35 İstanbul) → Web Push.
+  `/api/subscribe` (push aboneliği), 5 dakikada bir cron; telefonun saatine göre seçilen saatte Web Push.
 - Günün kelimesi: bir gün hiç kelime eklenmezse ertesi sabahki cron, mevcut kelimelerle ilgili yeni bir kelime ekler (Ayarlar'dan kapatılabilir; `POST /api/settings {autoWord}`).
 - Tüm sunucu verisi tek bir Durable Object'te (SQLite, ücretsiz plan). VAPID anahtarları ilk kullanımda üretilir.
 

@@ -3,14 +3,14 @@
 //   translate  → Anthropic API (claude-opus-5-5) returns the JSON the app asked for
 //   sync       → mirror of the phone's word list (backup + source for the morning push)
 //   subscribe  → Web Push subscriptions
-//   remind     → cron (08:35 Europe/Istanbul) sends "Günaydın! Bugün N kelimen var…"
+//   remind     → cron every 5 min; at the owner's chosen time (default 08:35, phone's time zone) sends "Günaydın! Bugün N kelimen var…"
 // All state lives in one Durable Object (SQLite-backed, free plan). VAPID keys are generated
 // on first use and kept there, so the only secrets the owner sets are APP_TOKEN and ANTHROPIC_API_KEY.
 
 import { DurableObject } from 'cloudflare:workers';
 import Anthropic from '@anthropic-ai/sdk';
 import { buildPushPayload } from '@block65/webcrypto-web-push';
-import { todayIn, dueWords, reminderText } from './remind.js';
+import { todayIn, timeIn, remindDue, validTime, dueWords, reminderText } from './remind.js';
 import { parseJSON } from './util.js';
 import { shouldAutoAdd, autoWordPrompt, autoDoc, mergeData } from './autoword.js';
 
@@ -50,10 +50,11 @@ export class Store extends DurableObject {
 
   async wipe() { await this.ctx.storage.put('data', { words: [], days: {}, deleted: {}, syncedAt: new Date().toISOString() }); await this.ctx.storage.delete('lastAuto'); }
 
-  async getSettings() { return Object.assign({ autoWord: true }, (await this.ctx.storage.get('settings')) || {}); }
+  async getSettings() { return Object.assign({ autoWord: true, remindAt: '08:35' }, (await this.ctx.storage.get('settings')) || {}); }
   async setSettings(patch) {
     const cur = await this.getSettings();
     if (typeof patch.autoWord === 'boolean') cur.autoWord = patch.autoWord;
+    if (validTime(patch.remindAt)) cur.remindAt = patch.remindAt;
     await this.ctx.storage.put('settings', cur);
     return cur;
   }
@@ -97,7 +98,7 @@ export class Store extends DurableObject {
 
   async addSub(sub, meta) {
     const subs = await this.listSubs();
-    subs[sub.endpoint] = { sub, tz: meta.tz || 'Europe/Istanbul', origin: meta.origin || '', ua: (meta.ua || '').slice(0, 200), createdAt: new Date().toISOString() };
+    subs[sub.endpoint] = { lastDay: subs[sub.endpoint] && subs[sub.endpoint].lastDay, sub, tz: meta.tz || 'Europe/Istanbul', origin: meta.origin || '', ua: (meta.ua || '').slice(0, 200), createdAt: new Date().toISOString() };
     await this.ctx.storage.put('subs', subs);
     return Object.keys(subs).length;
   }
@@ -126,7 +127,44 @@ export class Store extends DurableObject {
    * Sends the reminder to every subscription whose local date has due words.
    * dry: compute only. force: send even with nothing due (test notification).
    */
-  async remind({ dry = false, force = false, auto = false, now = Date.now() } = {}) {
+  /**
+   * Runs every 5 minutes. Each phone gets its morning run once a day, as soon as its local time
+   * reaches the chosen time. reset: forget which phones already had today's run (tests).
+   */
+  async tick({ now = Date.now(), reset = false } = {}) {
+    const settings = await this.getSettings();
+    const subs = await this.listSubs();
+    const due = [];
+    let migrated = false;
+    for (const [endpoint, entry] of Object.entries(subs)) {
+      const tz = entry.tz || 'Europe/Istanbul';
+      // a phone without a record (subscribed after its time today, or before this scheduler existed) starts tomorrow
+      // seen before its time today: null = "send today"; first seen after its time: starts tomorrow
+      if (reset) { entry.lastDay = null; migrated = true; }
+      if (entry.lastDay === undefined) {
+        migrated = true;
+        if (timeIn(tz, new Date(now)) >= settings.remindAt) { entry.lastDay = todayIn(tz, new Date(now)); continue; }
+        entry.lastDay = null;
+      }
+      if (remindDue(timeIn(tz, new Date(now)), settings.remindAt, entry.lastDay, todayIn(tz, new Date(now)))) due.push(endpoint);
+    }
+    if (migrated) await this.ctx.storage.put('subs', subs);
+    // no phone subscribed: still add the word of the day at the chosen time (Istanbul clock)
+    if (!due.length) {
+      const tz = 'Europe/Istanbul';
+      if (!Object.keys(subs).length && timeIn(tz, new Date(now)) >= settings.remindAt) {
+        try { await this.autoWord({ now, tz }); } catch (e) { console.error('auto-word', e && e.message); }
+      }
+      return { ran: false, remindAt: settings.remindAt };
+    }
+    const out = await this.remind({ auto: true, now, only: new Set(due) });
+    const after = await this.listSubs();   // mark today's run done for each phone (removed ones are gone)
+    for (const endpoint of due) if (after[endpoint]) after[endpoint].lastDay = todayIn(after[endpoint].tz, new Date(now));
+    await this.ctx.storage.put('subs', after);
+    return Object.assign({ ran: true, remindAt: settings.remindAt }, out);
+  }
+
+  async remind({ dry = false, force = false, auto = false, now = Date.now(), only = null } = {}) {
     let autoRes = null;
     if (auto && !dry) {
       try { autoRes = await this.autoWord({ now }); } catch (e) { autoRes = { added: false, reason: 'error', error: String((e && e.message) || e) }; }
@@ -137,6 +175,7 @@ export class Store extends DurableObject {
     const words = data ? data.words : [];
     const out = { at: new Date(now).toISOString(), subs: Object.keys(subs).length, sent: 0, skipped: 0, removed: 0, results: [], auto: autoRes ? { added: autoRes.added, reason: autoRes.reason, term: daily ? daily.term : undefined } : undefined };
     for (const [endpoint, entry] of Object.entries(subs)) {
+      if (only && !only.has(endpoint)) continue;
       const today = todayIn(entry.tz, new Date(now));
       const due = dueWords(words, today);
       const short = endpoint.replace(/^https?:\/\//, '').slice(0, 48);
@@ -259,6 +298,10 @@ async function api(req, env, url) {
     if (!body || typeof body !== 'object') return fail(400, 'bad_request', 'ayar gerekli');
     return json({ ok: true, settings: await s.setSettings(body) });
   }
+  if (path === '/api/tick' && method === 'POST') {
+    const at = url.searchParams.get('at');
+    return json(await s.tick({ now: at ? Date.parse(at) : Date.now(), reset: url.searchParams.get('reset') === '1' }));
+  }
   if (path === '/api/auto-word' && method === 'POST') {
     try { return json(await s.autoWord({ force: url.searchParams.get('force') === '1' })); }
     catch (e) { console.error('auto-word error', e && e.message); return fail(502, 'upstream', 'Günün kelimesi üretilemedi.'); }
@@ -294,6 +337,6 @@ export default {
     }
   },
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(store(env).remind({ auto: true }).then((r) => console.log('remind', JSON.stringify(r))));
+    ctx.waitUntil(store(env).tick().then((r) => { if (r.ran) console.log('remind', JSON.stringify(r)); }));
   },
 };

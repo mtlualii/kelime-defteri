@@ -29,3 +29,9 @@ assert.deepEqual(parseJSON('Sure! Here it is: {"en":"a","tr":"b"} hope that help
 assert.equal(parseJSON('no json here'), undefined);
 assert.equal(parseJSON(''), undefined);
 console.log('remind + parseJSON OK');
+import { timeIn, remindDue, validTime } from '../src/remind.js';
+assert.equal(timeIn('Europe/Istanbul', new Date('2026-11-14T05:35:00Z')), '08:35');
+assert.equal(timeIn('Europe/Berlin', new Date('2026-11-14T07:35:00Z')), '08:35');
+assert.equal(remindDue('08:35', '08:35', null, 'd'), true); assert.equal(remindDue('08:30', '08:35', null, 'd'), false); assert.equal(remindDue('09:00', '08:35', 'd', 'd'), false);
+assert.ok(validTime('07:05') && !validTime('7:05') && !validTime('24:00'));
+console.log('time helpers OK');

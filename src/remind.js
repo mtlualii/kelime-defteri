@@ -11,6 +11,24 @@ export function todayIn(tz, date = new Date()) {
   }
 }
 
+/** HH:MM wall-clock time for `date` in `tz`. */
+export function timeIn(tz, date = new Date()) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: tz || 'Europe/Istanbul', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date);
+    const get = (t) => parts.find((p) => p.type === t).value;
+    return `${get('hour')}:${get('minute')}`;
+  } catch (e) {
+    return new Date(date.getTime() + 3 * 3600 * 1000).toISOString().slice(11, 16);
+  }
+}
+
+/** The morning run for one phone is due once its local time has reached `remindAt` and it hasn't had today's run. */
+export function remindDue(nowHM, remindAt, lastDay, today) {
+  return lastDay !== today && nowHM >= (remindAt || '08:35');
+}
+
+export const validTime = (t) => typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
+
 /** Words whose review date has arrived (a word without `due` counts as due). */
 export function dueWords(words, today) {
   return (Array.isArray(words) ? words : []).filter((w) => w && typeof w === 'object' && (!w.due || String(w.due) <= today));
